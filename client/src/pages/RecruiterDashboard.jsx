@@ -18,7 +18,7 @@
 // - App.jsx (loaded when route paths target '/recruiter/*')
 // ====================================================
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
@@ -36,12 +36,7 @@ import {
   PhoneCall, 
   UserPlus,
   ArrowRight,
-  TrendingUp,
-  Award,
-  ChevronRight,
-  CheckCircle,
-  Clock,
-  ChevronDown
+  TrendingUp
 } from 'lucide-react';
 
 // Purpose:
@@ -75,6 +70,9 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     company: '',
     location: '',
     salary: '',
+    salaryType: 'Fixed',
+    minSalary: '',
+    maxSalary: '',
     jobType: 'Full Time',
     description: '',
   });
@@ -121,7 +119,7 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
               companyName: job.company,
             }));
             return { jobId: job._id, count, applications: appsWithJob };
-          } catch (e) {
+          } catch {
             return { jobId: job._id, count: 0, applications: [] };
           }
         })
@@ -166,15 +164,33 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
       const fetchJobDetails = async () => {
         try {
           const res = await api.getJobById(editJobId);
+          
+          let salaryType = 'Fixed';
+          let minSalary = '';
+          let maxSalary = '';
+          let salary = String(res.job.salary);
+
+          if (res.job.salaryRange) {
+            const rangeMatch = res.job.salaryRange.match(/(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/);
+            if (rangeMatch) {
+              salaryType = 'Range';
+              minSalary = String(parseFloat(rangeMatch[1]) * 100000);
+              maxSalary = String(parseFloat(rangeMatch[2]) * 100000);
+            }
+          }
+
           setFormData({
             title: res.job.title,
             company: res.job.company,
             location: res.job.location,
-            salary: String(res.job.salary),
+            salary,
+            salaryType,
+            minSalary,
+            maxSalary,
             jobType: res.job.jobType,
             description: res.job.description,
           });
-        } catch (err) {
+        } catch {
           setError('Failed to fetch job details for editing.');
         }
       };
@@ -189,6 +205,9 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
       company: '',
       location: '',
       salary: '',
+      salaryType: 'Fixed',
+      minSalary: '',
+      maxSalary: '',
       jobType: 'Full Time',
       description: '',
     });
@@ -209,12 +228,40 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     if (!formData.company.trim()) errors.company = 'Company name is required';
     if (!formData.location.trim()) errors.location = 'Location is required';
     
-    if (formData.salary === '' || formData.salary === null) {
-      errors.salary = 'Salary is required';
+    if (formData.salaryType === 'Fixed') {
+      if (formData.salary === '' || formData.salary === null) {
+        errors.salary = 'Salary is required';
+      } else {
+        const num = Number(formData.salary);
+        if (isNaN(num) || num <= 0) {
+          errors.salary = 'Salary must be a positive number';
+        }
+      }
     } else {
-      const num = Number(formData.salary);
-      if (isNaN(num) || num <= 0) {
-        errors.salary = 'Salary must be a positive number';
+      if (!formData.minSalary) {
+        errors.minSalary = 'Minimum salary is required';
+      } else {
+        const minNum = Number(formData.minSalary);
+        if (isNaN(minNum) || minNum <= 0) {
+          errors.minSalary = 'Minimum salary must be a positive number';
+        }
+      }
+
+      if (!formData.maxSalary) {
+        errors.maxSalary = 'Maximum salary is required';
+      } else {
+        const maxNum = Number(formData.maxSalary);
+        if (isNaN(maxNum) || maxNum <= 0) {
+          errors.maxSalary = 'Maximum salary must be a positive number';
+        }
+      }
+
+      if (formData.minSalary && formData.maxSalary) {
+        const minNum = Number(formData.minSalary);
+        const maxNum = Number(formData.maxSalary);
+        if (minNum >= maxNum) {
+          errors.maxSalary = 'Maximum salary must be greater than minimum salary';
+        }
       }
     }
 
@@ -244,10 +291,23 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
 
     try {
       setFormSubmitLoading(true);
-      await api.createJob({
-        ...formData,
-        salary: Number(formData.salary),
-      });
+      const payload = {
+        title: formData.title,
+        company: formData.company,
+        location: formData.location,
+        jobType: formData.jobType,
+        description: formData.description,
+      };
+
+      if (formData.salaryType === 'Fixed') {
+        payload.salary = Number(formData.salary);
+        payload.salaryRange = `₹ ${Number(formData.salary) / 100000} LPA`;
+      } else {
+        payload.salary = (Number(formData.minSalary) + Number(formData.maxSalary)) / 2;
+        payload.salaryRange = `₹ ${Number(formData.minSalary) / 100000} - ${Number(formData.maxSalary) / 100000} LPA`;
+      }
+
+      await api.createJob(payload);
       resetForm();
       onPageChange('/recruiter/dashboard');
     } catch (err) {
@@ -271,10 +331,23 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
 
     try {
       setFormSubmitLoading(true);
-      await api.updateJob(editJobId, {
-        ...formData,
-        salary: Number(formData.salary),
-      });
+      const payload = {
+        title: formData.title,
+        company: formData.company,
+        location: formData.location,
+        jobType: formData.jobType,
+        description: formData.description,
+      };
+
+      if (formData.salaryType === 'Fixed') {
+        payload.salary = Number(formData.salary);
+        payload.salaryRange = `₹ ${Number(formData.salary) / 100000} LPA`;
+      } else {
+        payload.salary = (Number(formData.minSalary) + Number(formData.maxSalary)) / 2;
+        payload.salaryRange = `₹ ${Number(formData.minSalary) / 100000} - ${Number(formData.maxSalary) / 100000} LPA`;
+      }
+
+      await api.updateJob(editJobId, payload);
       resetForm();
       onPageChange('/recruiter/dashboard');
     } catch (err) {
@@ -411,17 +484,126 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Salary (Annual, USD)</label>
-              <input 
-                type="number" 
-                name="salary"
-                value={formData.salary} 
-                onChange={handleInputChange} 
-                className={`form-input ${formErrors.salary ? 'input-error' : ''}`} 
-                placeholder="e.g. 120000"
-              />
-              {formErrors.salary && <span className="form-error-msg">{formErrors.salary}</span>}
+              <label className="form-label">Salary Type</label>
+              <div style={{ display: 'flex', gap: '0.75rem', backgroundColor: 'var(--bg-primary)', padding: '0.35rem', borderRadius: '10px', border: '1px solid var(--border-color)', marginBottom: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, salaryType: 'Fixed' }))}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.6rem',
+                    borderRadius: '8px',
+                    background: formData.salaryType === 'Fixed' ? 'var(--bg-secondary)' : 'none',
+                    color: formData.salaryType === 'Fixed' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: formData.salaryType === 'Fixed' ? '0 2px 8px rgba(0, 0, 0, 0.05)' : 'none',
+                    border: formData.salaryType === 'Fixed' ? '1px solid var(--border-color)' : '1px solid transparent',
+                  }}
+                >
+                  Fixed Salary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, salaryType: 'Range' }))}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.6rem',
+                    borderRadius: '8px',
+                    background: formData.salaryType === 'Range' ? 'var(--bg-secondary)' : 'none',
+                    color: formData.salaryType === 'Range' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: formData.salaryType === 'Range' ? '0 2px 8px rgba(0, 0, 0, 0.05)' : 'none',
+                    border: formData.salaryType === 'Range' ? '1px solid var(--border-color)' : '1px solid transparent',
+                  }}
+                >
+                  Salary Range
+                </button>
+              </div>
             </div>
+
+            {formData.salaryType === 'Fixed' ? (
+              <div className="form-group">
+                <label className="form-label">Salary (Annual, INR)</label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ position: 'absolute', left: '1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>₹</span>
+                  <input 
+                    type="number" 
+                    name="salary"
+                    value={formData.salary} 
+                    onChange={handleInputChange} 
+                    className={`form-input ${formErrors.salary ? 'input-error' : ''}`} 
+                    placeholder="e.g. 800000"
+                    style={{ paddingLeft: '2rem' }}
+                  />
+                </div>
+                {formErrors.salary && <span className="form-error-msg">{formErrors.salary}</span>}
+                {formData.salary && !formErrors.salary && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.25rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Preview:</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-hover)' }}>
+                      ₹ {Number(formData.salary) / 100000} LPA
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Min Salary (Annual, INR)</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ position: 'absolute', left: '1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>₹</span>
+                    <input 
+                      type="number" 
+                      name="minSalary"
+                      value={formData.minSalary} 
+                      onChange={handleInputChange} 
+                      className={`form-input ${formErrors.minSalary ? 'input-error' : ''}`} 
+                      placeholder="e.g. 600000"
+                      style={{ paddingLeft: '2rem' }}
+                    />
+                  </div>
+                  {formErrors.minSalary && <span className="form-error-msg">{formErrors.minSalary}</span>}
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Max Salary (Annual, INR)</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ position: 'absolute', left: '1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>₹</span>
+                    <input 
+                      type="number" 
+                      name="maxSalary"
+                      value={formData.maxSalary} 
+                      onChange={handleInputChange} 
+                      className={`form-input ${formErrors.maxSalary ? 'input-error' : ''}`} 
+                      placeholder="e.g. 1000000"
+                      style={{ paddingLeft: '2rem' }}
+                    />
+                  </div>
+                  {formErrors.maxSalary && <span className="form-error-msg">{formErrors.maxSalary}</span>}
+                </div>
+                {formData.minSalary && formData.maxSalary && !formErrors.minSalary && !formErrors.maxSalary && (
+                  <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.25rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Preview:</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-hover)' }}>
+                      ₹ {Number(formData.minSalary) / 100000} - {Number(formData.maxSalary) / 100000} LPA
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">Job Type</label>
@@ -524,16 +706,126 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Salary (Annual, USD)</label>
-              <input 
-                type="number" 
-                name="salary"
-                value={formData.salary} 
-                onChange={handleInputChange} 
-                className={`form-input ${formErrors.salary ? 'input-error' : ''}`} 
-              />
-              {formErrors.salary && <span className="form-error-msg">{formErrors.salary}</span>}
+              <label className="form-label">Salary Type</label>
+              <div style={{ display: 'flex', gap: '0.75rem', backgroundColor: 'var(--bg-primary)', padding: '0.35rem', borderRadius: '10px', border: '1px solid var(--border-color)', marginBottom: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, salaryType: 'Fixed' }))}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.6rem',
+                    borderRadius: '8px',
+                    background: formData.salaryType === 'Fixed' ? 'var(--bg-secondary)' : 'none',
+                    color: formData.salaryType === 'Fixed' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: formData.salaryType === 'Fixed' ? '0 2px 8px rgba(0, 0, 0, 0.05)' : 'none',
+                    border: formData.salaryType === 'Fixed' ? '1px solid var(--border-color)' : '1px solid transparent',
+                  }}
+                >
+                  Fixed Salary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, salaryType: 'Range' }))}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.6rem',
+                    borderRadius: '8px',
+                    background: formData.salaryType === 'Range' ? 'var(--bg-secondary)' : 'none',
+                    color: formData.salaryType === 'Range' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: formData.salaryType === 'Range' ? '0 2px 8px rgba(0, 0, 0, 0.05)' : 'none',
+                    border: formData.salaryType === 'Range' ? '1px solid var(--border-color)' : '1px solid transparent',
+                  }}
+                >
+                  Salary Range
+                </button>
+              </div>
             </div>
+
+            {formData.salaryType === 'Fixed' ? (
+              <div className="form-group">
+                <label className="form-label">Salary (Annual, INR)</label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ position: 'absolute', left: '1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>₹</span>
+                  <input 
+                    type="number" 
+                    name="salary"
+                    value={formData.salary} 
+                    onChange={handleInputChange} 
+                    className={`form-input ${formErrors.salary ? 'input-error' : ''}`} 
+                    placeholder="e.g. 800000"
+                    style={{ paddingLeft: '2rem' }}
+                  />
+                </div>
+                {formErrors.salary && <span className="form-error-msg">{formErrors.salary}</span>}
+                {formData.salary && !formErrors.salary && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.25rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Preview:</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-hover)' }}>
+                      ₹ {Number(formData.salary) / 100000} LPA
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Min Salary (Annual, INR)</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ position: 'absolute', left: '1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>₹</span>
+                    <input 
+                      type="number" 
+                      name="minSalary"
+                      value={formData.minSalary} 
+                      onChange={handleInputChange} 
+                      className={`form-input ${formErrors.minSalary ? 'input-error' : ''}`} 
+                      placeholder="e.g. 600000"
+                      style={{ paddingLeft: '2rem' }}
+                    />
+                  </div>
+                  {formErrors.minSalary && <span className="form-error-msg">{formErrors.minSalary}</span>}
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Max Salary (Annual, INR)</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ position: 'absolute', left: '1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>₹</span>
+                    <input 
+                      type="number" 
+                      name="maxSalary"
+                      value={formData.maxSalary} 
+                      onChange={handleInputChange} 
+                      className={`form-input ${formErrors.maxSalary ? 'input-error' : ''}`} 
+                      placeholder="e.g. 1000000"
+                      style={{ paddingLeft: '2rem' }}
+                    />
+                  </div>
+                  {formErrors.maxSalary && <span className="form-error-msg">{formErrors.maxSalary}</span>}
+                </div>
+                {formData.minSalary && formData.maxSalary && !formErrors.minSalary && !formErrors.maxSalary && (
+                  <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.25rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Preview:</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-hover)' }}>
+                      ₹ {Number(formData.minSalary) / 100000} - {Number(formData.maxSalary) / 100000} LPA
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">Job Type</label>
@@ -839,6 +1131,7 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                     <th>Job Details</th>
                     <th>Job Type</th>
                     <th>Salary Range</th>
+                    <th>Date Posted</th>
                     <th>Applications</th>
                     <th>Actions</th>
                   </tr>
@@ -846,7 +1139,7 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                 <tbody>
                   {jobs.length === 0 ? (
                     <tr>
-                      <td colSpan="5" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
                         <div className="empty-state-container" style={{ border: 'none', boxShadow: 'none', background: 'transparent' }}>
                           <Briefcase size={40} className="empty-state-icon" />
                           <h3 className="empty-state-title">No jobs created yet</h3>
@@ -871,7 +1164,15 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                         </td>
                         <td>
                           <span style={{ fontWeight: 500 }}>
-                            ${job.salary.toLocaleString()} / yr
+                            {job.salaryRange || `₹ ${job.salary.toLocaleString()} / yr`}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 500 }}>
+                            <Calendar size={14} style={{ color: 'var(--accent)' }} />
+                            <span>
+                              {new Date(job.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
                           </span>
                         </td>
                         <td>
