@@ -1,3 +1,23 @@
+// ====================================================
+// Recruiter Dashboard Component
+//
+// This page acts as the central workspace for recruiters.
+// It allows recruiters to:
+// 1. View overall statistics (total jobs, total applications, active posts).
+// 2. Create new job vacancy posts.
+// 3. Edit existing job vacancies.
+// 4. View candidate applications for all postings or specific vacancies.
+// 5. Update candidates' application statuses (Under Review, Shortlisted, Rejected).
+//
+// Features:
+// - Fetches the recruiter's own posted jobs.
+// - Resolves matching edit job IDs dynamically using regex pattern queries.
+// - Supports modal overlay displaying candidate contact details and resumes.
+//
+// Used by:
+// - App.jsx (loaded when route paths target '/recruiter/*')
+// ====================================================
+
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -24,6 +44,15 @@ import {
   ChevronDown
 } from 'lucide-react';
 
+// Purpose:
+// Main control panel component for recruiter accounts. Handles dashboard sub-views.
+//
+// Input:
+// - currentPath (string): The active URL path (helps determine which view is loaded).
+// - onPageChange (function): Callback function to switch paths.
+//
+// Output:
+// Renders the specific Recruiter sub-page (dashboard stats, edit form, create form, or all applications).
 const RecruiterDashboard = ({ currentPath, onPageChange }) => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +91,14 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
   const editJobMatch = currentPath.match(/^\/recruiter\/edit-job\/([a-fA-F0-9]{24}|[0-9]+)$/);
   const editJobId = editJobMatch ? editJobMatch[1] : null;
 
+  // Purpose:
+  // Loads all data needed for the dashboard (jobs, applicant counters, and recent application logs).
+  //
+  // Input:
+  // None.
+  //
+  // Output:
+  // Populates jobs list, appCounts map, stats object, and recentApplications list states.
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
@@ -118,11 +155,12 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     }
   };
 
+  // Run the data load whenever path transitions occur
   useEffect(() => {
     fetchDashboardData();
   }, [currentPath]);
 
-  // Load job details for Edit view
+  // Load job details for Edit view if editJobId URL exists
   useEffect(() => {
     if (editJobId) {
       const fetchJobDetails = async () => {
@@ -144,6 +182,7 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     }
   }, [editJobId]);
 
+  // Resets the create/edit forms back to their clean empty states
   const resetForm = () => {
     setFormData({
       title: '',
@@ -156,7 +195,14 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     setFormErrors({});
   };
 
-  // Form Validations
+  // Purpose:
+  // Checks that all required form text inputs (title, description, salary, company, location) are correctly populated.
+  //
+  // Input:
+  // None (reads from formData state).
+  //
+  // Output:
+  // Returns true if forms are fully valid, false otherwise. Sets formErrors state.
   const validateForm = () => {
     const errors = {};
     if (!formData.title.trim()) errors.title = 'Job title is required';
@@ -178,12 +224,20 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     return Object.keys(errors).length === 0;
   };
 
+  // Handles update updates for any input fields inside the job forms
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Create Job Submit
+  // Purpose:
+  // Submits a new job posting form to create a new job vacancy.
+  //
+  // Input:
+  // e (Event) - Submit event.
+  //
+  // Output:
+  // Saves job on server and navigates the recruiter back to dashboard screen.
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -203,7 +257,14 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     }
   };
 
-  // Edit Job Submit
+  // Purpose:
+  // Submits the edited details of a job posting to save changes.
+  //
+  // Input:
+  // e (Event) - Submit event.
+  //
+  // Output:
+  // Updates job on server and navigates the recruiter back to dashboard screen.
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -223,7 +284,14 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     }
   };
 
-  // Delete Job
+  // Purpose:
+  // Deletes an existing job advertisement.
+  //
+  // Input:
+  // id (string) - The unique job database ID.
+  //
+  // Output:
+  // Removes job and triggers re-fetch of dashboard listings on success.
   const handleDeleteJob = async (id) => {
     if (window.confirm('Are you sure you want to delete this job listing? All associated candidate applications will also be deleted.')) {
       try {
@@ -235,7 +303,14 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     }
   };
 
-  // View Applications Modal (Legacy support for Dashboard table triggers)
+  // Purpose:
+  // Opens the modal overlay showing the complete list of candidate applications for a specific job.
+  //
+  // Input:
+  // job (object) - The target job object.
+  //
+  // Output:
+  // Opens the applications modal list and retrieves applicants list from backend.
   const openAppsModal = async (job) => {
     setSelectedJob(job);
     setIsAppsModalOpen(true);
@@ -250,6 +325,15 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     }
   };
 
+  // Purpose:
+  // Updates the evaluation status of a candidate application (e.g. Under Review -> Shortlisted).
+  //
+  // Input:
+  // - appId (string): Candidate application ID.
+  // - newStatus (string): The selected status value ("Under Review", "Shortlisted", "Rejected").
+  //
+  // Output:
+  // Saves status updates to backend and synchronizes UI tables.
   const handleStatusChange = async (appId, newStatus) => {
     try {
       await api.updateApplicationStatus(appId, newStatus);

@@ -1,9 +1,28 @@
+// ====================================================
+// Job Details Page Component
+//
+// This page displays comprehensive information about a specific job post.
+// Candidates can read the job overview, list of responsibilities, requirements,
+// salary details, and apply for the position or save (bookmark) it.
+// Recruiter users see a read-only view or an Edit button if they created it.
+//
+// Features:
+// - Fetches single job data dynamically from the API based on URL parameter ID.
+// - Parses plain-text descriptions into Structured Overview, Responsibilities, and Requirements.
+// - Integrates custom company mission and data profiles based on the company name.
+// - Integrates with browser LocalStorage to toggle saved job bookmarks.
+//
+// Used by:
+// - App.jsx (when the page route maps to '/job-details')
+// ====================================================
+
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { CompanyLogo } from '../components/JobCard';
 import { ArrowLeft, MapPin, Clock, Bookmark, Calendar, Check, Globe, Users, Building, Flag } from 'lucide-react';
 
+// Hardcoded company information lookup. Helps display mock information for known brands.
 const companyInfoMap = {
   google: {
     mission: "Google's mission is to organize the world's information and make it universally accessible and useful.",
@@ -35,6 +54,14 @@ const companyInfoMap = {
   }
 };
 
+// Purpose:
+// Retrieves background profile details (website, mission, founded year) for a company.
+//
+// Input:
+// companyName (string) - Name of the organization.
+//
+// Output:
+// Returns a profile object with mission, website, size, industry, and founded properties.
 const getCompanyInfo = (companyName) => {
   const key = (companyName || '').toLowerCase();
   if (companyInfoMap[key]) return companyInfoMap[key];
@@ -47,12 +74,22 @@ const getCompanyInfo = (companyName) => {
   };
 };
 
+// Purpose:
+// Parses the raw job description string from the database into structured sections.
+// It searches for "Responsibilities:" and "Requirements:" keywords to extract sub-bullet lists.
+//
+// Input:
+// desc (string) - Raw description text.
+//
+// Output:
+// Returns an object containing: { overview: string, responsibilities: string[], requirements: string[] }
 const parseJobDescription = (desc) => {
   if (!desc) return { overview: '', responsibilities: [], requirements: [] };
   
   const responsibilitiesIndex = desc.indexOf('Responsibilities:');
   const requirementsIndex = desc.indexOf('Requirements:');
   
+  // If formatting keywords are not present, return generic list placeholders
   if (responsibilitiesIndex === -1 || requirementsIndex === -1) {
     return {
       overview: desc,
@@ -69,6 +106,7 @@ const parseJobDescription = (desc) => {
     };
   }
   
+  // Slice out segments based on the index locations of titles
   const overview = desc.substring(0, responsibilitiesIndex).trim();
   
   const responsibilitiesText = desc.substring(responsibilitiesIndex + 17, requirementsIndex).trim();
@@ -86,16 +124,31 @@ const parseJobDescription = (desc) => {
   return { overview, responsibilities, requirements };
 };
 
+// Purpose:
+// Renders the job detail layout including company description, salary, locations, and actions.
+//
+// Input:
+// - pageParams (object): Contains job ID in pageParams.id.
+// - onPageChange (function): Navigates to a different URL view.
+// - onApply (function): Shows the job application form popup.
+// - appliedJobIds (array): Array of job IDs the candidate has already applied to.
+// - user (object): Current logged in user object (includes role details).
+//
+// Output:
+// Renders details card and recruiter-only edit action or candidate-only apply/save buttons.
 const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [], user }) => {
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Track if candidate bookmarked this job listing. Reads from localStorage keys.
   const [isBookmarked, setIsBookmarked] = useState(() => {
     if (!pageParams || !pageParams.id) return false;
     const savedStr = localStorage.getItem('savedJobIds') || '[]';
     return JSON.parse(savedStr).includes(pageParams.id);
   });
 
+  // Re-sync bookmark state if url parameter changes
   useEffect(() => {
     if (pageParams && pageParams.id) {
       const savedStr = localStorage.getItem('savedJobIds') || '[]';
@@ -103,22 +156,31 @@ const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [], use
     }
   }, [pageParams]);
 
+  // Purpose:
+  // Saves or removes this job ID from the user's bookmarks (stored in local storage).
+  //
+  // Input:
+  // None.
+  //
+  // Output:
+  // Toggles the local savedJobIds array and flips isBookmarked state.
   const handleBookmarkToggle = () => {
     if (!job) return;
     const savedStr = localStorage.getItem('savedJobIds') || '[]';
     let saved = JSON.parse(savedStr);
     let nextState = false;
     if (saved.includes(job._id)) {
-      saved = saved.filter(id => id !== job._id);
+      saved = saved.filter(id => id !== job._id); // Remove bookmark
       nextState = false;
     } else {
-      saved.push(job._id);
+      saved.push(job._id); // Save bookmark
       nextState = true;
     }
     localStorage.setItem('savedJobIds', JSON.stringify(saved));
     setIsBookmarked(nextState);
   };
 
+  // Fetch the full details of this specific job listing on mount or when pageParams.id changes
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
@@ -141,6 +203,7 @@ const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [], use
 
   if (loading) return <LoadingSpinner />;
 
+  // Display error screen if the backend failed to return the job record
   if (error || !job) {
     return (
       <div className="container" style={{ padding: '4rem 1.5rem' }}>
@@ -158,6 +221,14 @@ const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [], use
   const { overview, responsibilities, requirements } = parseJobDescription(job.description);
   const companyInfo = getCompanyInfo(job.company);
 
+  // Purpose:
+  // Calculates how many days ago this job listing was posted.
+  //
+  // Input:
+  // None.
+  //
+  // Output:
+  // Returns relative time text like "Today", "1 day ago", or "N days ago".
   const getPostedDays = () => {
     const createdDate = new Date(job.createdAt || Date.now());
     const diffTime = Math.abs(new Date() - createdDate);
@@ -168,6 +239,14 @@ const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [], use
     return `${diffDays} days ago`;
   };
 
+  // Purpose:
+  // Formats numeric salary ranges into user-friendly currency text.
+  //
+  // Input:
+  // amount (number) - The numeric annual salary.
+  //
+  // Output:
+  // Returns currency text (e.g. ₹12,00,000 / yr).
   const formatSalary = (amount) => {
     if (job.salaryRange) return job.salaryRange;
     return new Intl.NumberFormat('en-IN', {
@@ -177,6 +256,7 @@ const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [], use
     }).format(amount) + ' / yr';
   };
 
+  // Check if the current logged-in recruiter created this specific job posting
   const isOwner = user && job && (
     job.postedBy === user._id || 
     (job.postedBy && job.postedBy._id === user._id)

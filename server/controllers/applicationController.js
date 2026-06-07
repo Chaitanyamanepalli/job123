@@ -1,9 +1,34 @@
+// ====================================================
+// Application Controller
+//
+// This file handles operations related to job applications.
+// Candidates can submit applications, and recruiters can view applicants and change application status.
+//
+// Features:
+// - Apply for a Job (Candidate-only, duplication guard)
+// - Fetch Job Applicants list (Recruiter-only, owner verified)
+// - Fetch User Applications history list (Candidate-only)
+// - Update Application Status (Recruiter-only, owner verified)
+//
+// Used by:
+// - applicationRoutes.js
+// - jobRoutes.js (nested application endpoints)
+// ====================================================
+
 const Application = require('../models/Application');
 const Job = require('../models/Job');
 
-// @desc    Apply for a job
-// @route   POST /api/jobs/:id/apply
-// @access  Public (Candidate)
+// Purpose:
+// Creates a new job application in the database for a candidate.
+//
+// Input:
+// req.params.id (job ObjectId), and req.body contains { name, email, phone }.
+//
+// Output:
+// Returns the created application document details.
+//
+// Usage:
+// Triggered on the frontend when candidate fills out and submits the "Apply Job" modal form.
 const applyJob = async (req, res, next) => {
   try {
     const jobId = req.params.id;
@@ -19,6 +44,7 @@ const applyJob = async (req, res, next) => {
     }
 
     // Check if applicant already applied to this specific job
+    // This prevents candidates from submitting multiple applications for the same job.
     const alreadyApplied = await Application.findOne({ jobId, candidateId: req.user._id });
     if (alreadyApplied) {
       return res.status(400).json({
@@ -27,6 +53,7 @@ const applyJob = async (req, res, next) => {
       });
     }
 
+    // Create the application document
     const application = await Application.create({
       name: name || req.user.fullName,
       email: (email || req.user.email).trim().toLowerCase(),
@@ -45,9 +72,17 @@ const applyJob = async (req, res, next) => {
   }
 };
 
-// @desc    Get all applications for a specific job
-// @route   GET /api/jobs/:id/applications
-// @access  Public (Recruiter)
+// Purpose:
+// Fetches all candidate applications submitted to a specific job listing.
+//
+// Input:
+// req.params.id (job ID).
+//
+// Output:
+// Returns a list of applications sorted by applied date (latest first).
+//
+// Usage:
+// Used on the recruiter's dashboard when checking applicants for their posted job.
 const getApplicationsByJob = async (req, res, next) => {
   try {
     const jobId = req.params.id;
@@ -81,12 +116,20 @@ const getApplicationsByJob = async (req, res, next) => {
   }
 };
 
-// @desc    Get applications of a candidate by email query
-// @route   GET /api/applications/user
-// @access  Public (Candidate)
+// Purpose:
+// Fetches all applications submitted by the logged-in candidate.
+//
+// Input:
+// req.user._id (logged-in candidate user ID).
+//
+// Output:
+// Returns candidate applications populated with the job details (job title, salary, etc.).
+//
+// Usage:
+// Used on the "My Applications" dashboard page for candidates.
 const getUserApplications = async (req, res, next) => {
   try {
-    // Retrieve applications for the authenticated candidate
+    // Retrieve applications and populate the associated 'jobId' properties
     const applications = await Application.find({ candidateId: req.user._id })
       .populate('jobId')
       .sort({ appliedAt: -1 });
@@ -101,9 +144,17 @@ const getUserApplications = async (req, res, next) => {
   }
 };
 
-// @desc    Update application status
-// @route   PUT /api/applications/:id/status
-// @access  Public (Recruiter)
+// Purpose:
+// Updates the review status of a candidate application (Under Review, Shortlisted, Rejected).
+//
+// Input:
+// req.params.id (application ID) and req.body.status.
+//
+// Output:
+// Returns the updated application document details.
+//
+// Usage:
+// Triggered on the recruiter's dashboard when updating a candidate application.
 const updateApplicationStatus = async (req, res, next) => {
   try {
     const { status } = req.body;

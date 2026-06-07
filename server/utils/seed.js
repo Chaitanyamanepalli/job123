@@ -1,9 +1,26 @@
+// ====================================================
+// Database Seeder Utility
+//
+// This script clears existing database tables and seeds sample data
+// (candidates, recruiters, jobs, applications) into MongoDB.
+//
+// Features:
+// - Wipes Job, Application, and User collections.
+// - Seeds a candidate user (rahul@gmail.com) and a recruiter user (recruiter@gmail.com).
+// - Seeds 4 sample jobs owned by the recruiter user.
+// - Seeds 4 sample job applications linked to the candidate.
+//
+// Usage:
+// Run from terminal: `node server/utils/seed.js`
+// ====================================================
+
 require('dotenv').config();
 const mongoose = require('mongoose');
 const Job = require('../models/Job');
 const Application = require('../models/Application');
 const User = require('../models/User');
 
+// Sample jobs data to seed
 const sampleJobs = [
   {
     title: 'Frontend Developer',
@@ -96,13 +113,24 @@ Requirements:
   }
 ];
 
+// Purpose:
+// Database script that drops old data and populates fresh sample documents.
+//
+// Input:
+// None (reads database URI from environment config).
+//
+// Output:
+// Writes success logs to terminal console.
+//
+// Usage:
+// Executed manually via command line: `node server/utils/seed.js`.
 const seedData = async () => {
   try {
-    // Connect to DB
+    // Connect to MongoDB database
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/jobportal_pro');
     console.log('Connected to database for seeding...');
 
-    // Clear existing data
+    // Clear all existing documents
     await Job.deleteMany({});
     await Application.deleteMany({});
     try {
@@ -113,7 +141,7 @@ const seedData = async () => {
     }
     console.log('Cleared existing data.');
 
-    // Seed candidate
+    // Seed candidate user profile
     const candidateUser = await User.create({
       fullName: 'Rahul Kumar',
       email: 'rahul@gmail.com',
@@ -121,7 +149,7 @@ const seedData = async () => {
       role: 'candidate',
     });
 
-    // Seed recruiter
+    // Seed recruiter user profile
     const recruiterUser = await User.create({
       fullName: 'Recruiter Pro',
       email: 'recruiter@gmail.com',
@@ -131,17 +159,17 @@ const seedData = async () => {
 
     console.log('Successfully seeded candidate and recruiter users.');
 
-    // Attach recruiter owner to sample jobs
+    // Attach recruiter owner ID to all sample jobs
     const jobsWithRecruiter = sampleJobs.map(job => ({
       ...job,
       postedBy: recruiterUser._id
     }));
 
-    // Insert Jobs
+    // Save jobs to database
     const createdJobs = await Job.insertMany(jobsWithRecruiter);
     console.log(`Successfully seeded ${createdJobs.length} jobs.`);
 
-    // Match exact application dates and statuses from My Applications mockup
+    // Setup sample candidate job applications
     const sampleApplications = [
       {
         name: 'Rahul Kumar',
@@ -192,5 +220,5 @@ const seedData = async () => {
   }
 };
 
-// Run seeding
+// Run seeding execution
 seedData();

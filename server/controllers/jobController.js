@@ -1,16 +1,42 @@
+// ====================================================
+// Job Controller
+//
+// This file handles all backend operations related to job listings.
+// It allows guests to search/filter jobs and lets recruiters manage their own postings.
+//
+// Features:
+// - Fetch Jobs (with search, experience filters, sorting, and pagination)
+// - Fetch Single Job Details by ID
+// - Create Job Posting (Recruiter-only)
+// - Update Job Posting (Recruiter-only, owner checked)
+// - Delete Job Posting (Recruiter-only, owner checked)
+//
+// Used by:
+// - jobRoutes.js
+// ====================================================
+
 const Job = require('../models/Job');
 const Application = require('../models/Application');
 
-// @desc    Get all jobs with search, filtering, sorting, and pagination
-// @route   GET /api/jobs
-// @access  Public
+// Purpose:
+// Retrieves a list of job postings matching search queries, filters, and paginations.
+//
+// Input:
+// req.query - search (string), location (string), jobType (string), experience (string), sort (string), page (number), limit (number), myJobs (boolean string).
+//
+// Output:
+// Returns JSON containing list of jobs, totalJobs matching query, and totalPages.
+//
+// Usage:
+// Used on Home page, Jobs search page, and Recruiter Dashboard list.
 const getJobs = async (req, res, next) => {
   try {
     const { search, location, jobType, experience, sort, page = 1, limit = 6, myJobs } = req.query;
 
     const query = {};
 
-    // Handle optional auth for recruiter's own jobs on dashboard
+    // Handle optional auth check for recruiter's own jobs on dashboard
+    // This allows recruiters to view only the jobs they created.
     if (myJobs === 'true') {
       let token;
       if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -39,13 +65,13 @@ const getJobs = async (req, res, next) => {
       query.location = { $regex: location, $options: 'i' };
     }
 
-    // Filter by Job Type (supports comma-separated list)
+    // Filter by Job Type (supports comma-separated list of types)
     if (jobType && jobType !== 'All' && jobType !== 'All Types') {
       const types = jobType.split(',');
       query.jobType = { $in: types };
     }
 
-    // Filter by Experience Level (supports comma-separated list)
+    // Filter by Experience Level mapping
     if (experience && experience !== 'All' && experience !== 'All Levels') {
       const expLevels = experience.split(',');
       const regexPatterns = [];
@@ -65,14 +91,14 @@ const getJobs = async (req, res, next) => {
       }
     }
 
-
-    // Pagination
+    // Pagination calculations
+    // Pagination is used to avoid loading all jobs at once, which improves loading times.
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
 
-    // Sorting
-    let sortOptions = { createdAt: -1 }; // Default: Latest
+    // Sorting configurations
+    let sortOptions = { createdAt: -1 }; // Default: Show newest jobs first
     if (sort) {
       switch (sort) {
         case 'Oldest':
@@ -113,9 +139,17 @@ const getJobs = async (req, res, next) => {
   }
 };
 
-// @desc    Get a single job's details
-// @route   GET /api/jobs/:id
-// @access  Public
+// Purpose:
+// Fetches the full profile/details of a single job listing.
+//
+// Input:
+// req.params.id (job ObjectId).
+//
+// Output:
+// Returns the matching job document.
+//
+// Usage:
+// Used when navigating to a job's details page.
 const getJobById = async (req, res, next) => {
   try {
     const job = await Job.findById(req.params.id);
@@ -134,9 +168,17 @@ const getJobById = async (req, res, next) => {
   }
 };
 
-// @desc    Create a new job post
-// @route   POST /api/jobs
-// @access  Public (Recruiter)
+// Purpose:
+// Creates a new job posting in the database.
+//
+// Input:
+// req.body - contains { title, company, location, salary, jobType, description, experience, salaryRange, logo }, and req.user._id (recruiter's user ID).
+//
+// Output:
+// Returns the newly created job posting details.
+//
+// Usage:
+// Triggered on the recruiter's dashboard when posting a job.
 const createJob = async (req, res, next) => {
   try {
     const { title, company, location, salary, jobType, description, experience, salaryRange, logo } = req.body;
@@ -151,7 +193,7 @@ const createJob = async (req, res, next) => {
       experience,
       salaryRange,
       logo,
-      postedBy: req.user._id,
+      postedBy: req.user._id, // Set the creator ID to the logged-in recruiter user
     });
 
     res.status(201).json({
@@ -164,10 +206,17 @@ const createJob = async (req, res, next) => {
   }
 };
 
-
-// @desc    Update a job post
-// @route   PUT /api/jobs/:id
-// @access  Public (Recruiter)
+// Purpose:
+// Modifies details of an existing job listing.
+//
+// Input:
+// req.params.id (job ID) and req.body (updated field details).
+//
+// Output:
+// Returns the updated job listing details.
+//
+// Usage:
+// Triggered on the recruiter's dashboard when editing a job listing.
 const updateJob = async (req, res, next) => {
   try {
     let job = await Job.findById(req.params.id);
@@ -178,7 +227,7 @@ const updateJob = async (req, res, next) => {
       });
     }
 
-    // Check if the logged in recruiter posted the job
+    // Owner authorization guard: Check if logged-in recruiter actually posted the job
     if (job.postedBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -201,9 +250,17 @@ const updateJob = async (req, res, next) => {
   }
 };
 
-// @desc    Delete a job post & cascade delete applications
-// @route   DELETE /api/jobs/:id
-// @access  Public (Recruiter)
+// Purpose:
+// Deletes a job posting and all its associated candidate applications.
+//
+// Input:
+// req.params.id (job ID).
+//
+// Output:
+// Returns a confirmation message.
+//
+// Usage:
+// Triggered on the recruiter's dashboard when deleting a job listing.
 const deleteJob = async (req, res, next) => {
   try {
     const job = await Job.findById(req.params.id);
@@ -214,7 +271,7 @@ const deleteJob = async (req, res, next) => {
       });
     }
 
-    // Check if the logged in recruiter posted the job
+    // Owner authorization guard: Check if logged-in recruiter actually posted the job
     if (job.postedBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -222,7 +279,7 @@ const deleteJob = async (req, res, next) => {
       });
     }
 
-    // Cascade delete associated applications
+    // Cascade delete: Remove all applications submitted to this job posting
     await Application.deleteMany({ jobId: req.params.id });
 
     // Delete the job itself

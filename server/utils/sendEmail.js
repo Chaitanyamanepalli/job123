@@ -1,5 +1,31 @@
+// ====================================================
+// Email Service Utility (Nodemailer wrapper)
+//
+// This file initializes an SMTP email dispatch transporter.
+// It is used to send password recovery reset links to users' emails.
+//
+// Features:
+// - Supports Gmail services configuration.
+// - Supports Custom SMTP hosts and ports.
+// - Falls back to a free test Ethereal Email provider if no environment details are present.
+//
+// Used by:
+// - authController.js (forgotPassword handler)
+// ====================================================
+
 const nodemailer = require('nodemailer');
 
+// Purpose:
+// Dispatches an email message using Nodemailer configuration.
+//
+// Input:
+// options (Object) - contains { to, subject, text, html }.
+//
+// Output:
+// Returns the Nodemailer message info on successful dispatch.
+//
+// Usage:
+// Imported and called inside authController.js for forgotPassword reset links.
 const sendEmail = async (options) => {
   let transporter;
 

@@ -1,8 +1,32 @@
+// ====================================================
+// User Profile Details Component
+//
+// This component displays information about the logged-in user (candidate or recruiter).
+// It presents their full name, email, account role, and lists metrics (like total jobs posted
+// or total applications submitted).
+//
+// Features:
+// - Fetches role-specific dashboard metadata dynamically (e.g. applications list size).
+// - Links users back to their respective dashboards based on roles.
+//
+// Used by:
+// - App.jsx (loaded when visual state path equals '/profile')
+// ====================================================
+
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { User, Mail, Shield, Briefcase, FileText, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
 
+// Purpose:
+// Renders the profile card info layout and aggregates stats.
+//
+// Input:
+// - user (object): Logged in session user details.
+// - onPageChange (function): Navigation handler.
+//
+// Output:
+// Renders personal details and statistical tiles.
 const Profile = ({ user, onPageChange }) => {
   const [stats, setStats] = useState({
     totalApplicationsSubmitted: 0,
@@ -12,10 +36,7 @@ const Profile = ({ user, onPageChange }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-
-
-
-
+  // Fetch profile stats dynamically depending on whether the user is a Candidate or Recruiter
   useEffect(() => {
     const fetchProfileStats = async () => {
       try {

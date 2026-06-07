@@ -1,3 +1,18 @@
+// ====================================================
+// Navbar (Header Navigation Component)
+//
+// This component renders the main header navigation menu.
+// It detects the logged-in user role and displays appropriate action options.
+//
+// Features:
+// - Role-based layout structure (different links for guest, candidate, and recruiter roles).
+// - Theme switch toggling integration (communicates with ThemeContext).
+// - Responsive layout toggles (collapses into hamburger menu on mobile sizes).
+//
+// Used by:
+// - App.jsx (fixed layout placement at the top of the viewport)
+// ====================================================
+
 import React, { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { Sun, Moon, Menu, X, User, LogOut, Shield } from 'lucide-react';
@@ -10,12 +25,24 @@ const LogoIcon = () => (
   </svg>
 );
 
+// Purpose:
+// Renders the main application header and navigation paths triggers.
+//
+// Input:
+// currentPage (string) - Active page path string.
+// onPageChange (function) - Handles page redirection.
+// user (Object) - Logged in user details.
+// onLogout (function) - Log out trigger callback.
+//
+// Output:
+// Returns the header Navbar JSX structure.
 const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
   const { theme, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
+  // Close the mobile slide menu and trigger redirection action
   const handleLinkClick = (page) => {
     onPageChange(page);
     setIsMenuOpen(false);
@@ -35,9 +62,10 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
           <span>JOBPORTAL <span className="brand-accent-text" style={{ color: 'var(--accent)' }}>PRO</span></span>
         </a>
 
-        {/* Desktop Links */}
+        {/* Desktop Links (Hidden on mobile) */}
         <nav className="nav-links">
-          {/* Guest Navbar */}
+          
+          {/* GUEST VIEW NAVIGATION */}
           {!user && (
             <>
               <a href="/" className={`nav-link-item ${currentPage === 'home' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/'); }}>
@@ -58,7 +86,7 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
             </>
           )}
 
-          {/* Candidate Navbar */}
+          {/* CANDIDATE VIEW NAVIGATION */}
           {user && user.role === 'candidate' && (
             <>
               <a href="/" className={`nav-link-item ${currentPage === 'home' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/'); }}>
@@ -82,7 +110,7 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
             </>
           )}
 
-          {/* Recruiter Navbar */}
+          {/* RECRUITER VIEW NAVIGATION */}
           {user && user.role === 'recruiter' && (
             <>
               <a href="/recruiter/dashboard" className={`nav-link-item ${currentPage === 'recruiter-dashboard' && window.location.pathname === '/recruiter/dashboard' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/recruiter/dashboard'); }}>
@@ -106,7 +134,7 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
             </>
           )}
 
-          {/* Theme Toggle */}
+          {/* Theme Mode Toggle Button */}
           <button 
             onClick={toggleTheme} 
             className="theme-switch-btn-nav"
@@ -116,7 +144,7 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
             {theme === 'light' ? <Moon size={18} fill="currentColor" /> : <Sun size={18} />}
           </button>
 
-          {/* User Profile Avatar Circle (if authenticated) */}
+          {/* User Profile Avatar initials circle */}
           {user && (
             <button 
               className="nav-profile-btn"
@@ -130,7 +158,7 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
           )}
         </nav>
 
-        {/* Mobile Hamburger Actions */}
+        {/* Mobile Hamburger Menu Actions */}
         <div className="mobile-actions">
           <button 
             onClick={toggleTheme} 
@@ -147,9 +175,10 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
         </div>
       </div>
 
-      {/* Mobile Dropdown Nav Menu */}
+      {/* Mobile Dropdown Nav Menu (Shown when isMenuOpen is true) */}
       <nav className={`mobile-nav ${isMenuOpen ? 'open' : ''}`} style={{ backgroundColor: '#111111', borderBottomColor: '#27272a' }}>
-        {/* Guest Mobile */}
+        
+        {/* Guest Mobile Menu */}
         {!user && (
           <>
             <a href="/" className={`nav-link-mobile ${currentPage === 'home' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/'); }}>
@@ -170,7 +199,7 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
           </>
         )}
 
-        {/* Candidate Mobile */}
+        {/* Candidate Mobile Menu */}
         {user && user.role === 'candidate' && (
           <>
             <a href="/" className={`nav-link-mobile ${currentPage === 'home' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/'); }}>
@@ -194,7 +223,7 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
           </>
         )}
 
-        {/* Recruiter Mobile */}
+        {/* Recruiter Mobile Menu */}
         {user && user.role === 'recruiter' && (
           <>
             <a href="/recruiter/dashboard" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/recruiter/dashboard'); }}>

@@ -1,7 +1,32 @@
+// ====================================================
+// Signup Page Component
+//
+// This component lets users register a new account on JobPortal Pro.
+// Users can choose to register as either a Candidate (to apply for jobs)
+// or a Recruiter (to post vacancies).
+//
+// Features:
+// - Validates full name, email format, minimum password length, and password match.
+// - Provides a tab bar to toggle between the Candidate and Recruiter roles.
+// - Automates login on successful registration and updates session state.
+//
+// Used by:
+// - App.jsx (loaded when visual state path equals '/signup')
+// ====================================================
+
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { User, Mail, Lock, Eye, EyeOff, Briefcase, AlertCircle, ArrowRight } from 'lucide-react';
 
+// Purpose:
+// Renders the Signup form and manages user registration.
+//
+// Input:
+// - onPageChange (function): Navigation callback to switch paths.
+// - onAuthSuccess (function): Callback that updates active session user details in App.jsx.
+//
+// Output:
+// Renders the registration card visual layout.
 const Signup = ({ onPageChange, onAuthSuccess }) => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -16,7 +41,14 @@ const Signup = ({ onPageChange, onAuthSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
 
-  // Validate form fields client-side
+  // Purpose:
+  // Validates inputs client-side before sending registration payload to server.
+  //
+  // Input:
+  // None (reads state fields).
+  //
+  // Output:
+  // Returns true if all fields are valid, false otherwise. Sets errors state.
   const validateForm = () => {
     const tempErrors = {};
     if (!fullName.trim()) tempErrors.fullName = 'Full Name is required';
@@ -44,10 +76,18 @@ const Signup = ({ onPageChange, onAuthSuccess }) => {
     return Object.keys(tempErrors).length === 0;
   };
 
+  // Purpose:
+  // Submits signup payload to the server register API.
+  //
+  // Input:
+  // e (Event) - Submit event.
+  //
+  // Output:
+  // Sets session keys, calls onAuthSuccess helper, and routes the new user into their dashboard.
   const handleSubmit = async (e) => {
     e.preventDefault();
     setApiError('');
-    if (!validateForm()) return;
+    if (!validateForm()) return; // Stop if inputs are invalid
 
     try {
       setLoading(true);
@@ -58,11 +98,11 @@ const Signup = ({ onPageChange, onAuthSuccess }) => {
         role
       );
       
-      // Store token and user details in sessionStorage (default)
+      // Store token and user details in sessionStorage (default behavior for signup)
       sessionStorage.setItem('token', res.token);
       sessionStorage.setItem('user', JSON.stringify(res.user));
       
-      // Trigger App's auth success handler
+      // Trigger App's auth success handler to refresh menus
       onAuthSuccess(res.user, res.token);
     } catch (err) {
       setApiError(err.message || 'An error occurred during registration.');

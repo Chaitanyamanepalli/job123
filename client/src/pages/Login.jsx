@@ -1,7 +1,31 @@
+// ====================================================
+// Login Page Component
+//
+// This component lets users (both Candidates and Recruiters) log into the app.
+// It verifies their credentials by sending their email and password to the server.
+//
+// Features:
+// - Validates email format and password field on the client side.
+// - Supports a "Remember Session" checkbox, which stores JWT in localStorage instead of sessionStorage.
+// - Provides a direct link to redirect users to the Forgot Password screen.
+//
+// Used by:
+// - App.jsx (loaded when visual state path equals '/login')
+// ====================================================
+
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
 
+// Purpose:
+// Renders the Login form and processes user sign-in.
+//
+// Input:
+// - onPageChange (function): Navigation callback to switch screens.
+// - onAuthSuccess (function): Callback that updates the main app state with the authenticated user and token.
+//
+// Output:
+// Renders the login card visual layout.
 const Login = ({ onPageChange, onAuthSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,17 +37,26 @@ const Login = ({ onPageChange, onAuthSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
 
-  // Validate form fields client-side
+  // Purpose:
+  // Validates inputs client-side before communicating with the login server.
+  //
+  // Input:
+  // None (reads email and password state).
+  //
+  // Output:
+  // Returns true if inputs are valid, false otherwise. Populates errors state.
   const validateForm = () => {
     const tempErrors = {};
     const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
     
+    // Ensure email exists and matches format regex pattern
     if (!email.trim()) {
       tempErrors.email = 'Email Address is required';
     } else if (!emailRegex.test(email.trim())) {
       tempErrors.email = 'Please provide a valid email address';
     }
 
+    // Ensure password is not empty
     if (!password) {
       tempErrors.password = 'Password is required';
     }
@@ -32,31 +65,39 @@ const Login = ({ onPageChange, onAuthSuccess }) => {
     return Object.keys(tempErrors).length === 0;
   };
 
+  // Purpose:
+  // Sends login request payload to the authentication API.
+  //
+  // Input:
+  // e (Event) - Submit event.
+  //
+  // Output:
+  // Stores session keys, calls onAuthSuccess helper, and navigates candidate/recruiter inside App.jsx.
   const handleSubmit = async (e) => {
     e.preventDefault();
     setApiError('');
-    if (!validateForm()) return;
+    if (!validateForm()) return; // Stop if form inputs are empty or invalid
 
     try {
       setLoading(true);
       const res = await api.login(email.trim(), password);
       
-      // Store token and user details based on Remember Me checkbox
+      // Store token and user details based on Remember Me checkbox choice
       if (rememberMe) {
         localStorage.setItem('token', res.token);
         localStorage.setItem('user', JSON.stringify(res.user));
-        // Clear sessionStorage just in case
+        // Clear temporary session keys to prevent duplicate logins
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('user');
       } else {
         sessionStorage.setItem('token', res.token);
         sessionStorage.setItem('user', JSON.stringify(res.user));
-        // Clear localStorage just in case
+        // Clear persistent local keys to prevent duplicate logins
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
       
-      // Trigger App's auth success handler
+      // Trigger App's auth success handler to refresh header menu
       onAuthSuccess(res.user, res.token);
     } catch (err) {
       setApiError(err.message || 'Invalid email or password.');

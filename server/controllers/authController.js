@@ -1,22 +1,64 @@
+// ====================================================
+// Authentication Controller
+//
+// This file handles all user accounts operations including registering new users,
+// logging users in, checking the current session, and initiating password resets.
+//
+// Features:
+// - Register User (Signup)
+// - Login User
+// - Fetch profile details (getMe)
+// - Request password reset email (forgotPassword)
+// - Reset password using link token (resetPassword)
+//
+// Password Reset Flow:
+// User clicks "Forgot Password" on screen
+// → User enters email and submits form
+// → Controller creates unique token and saves expiry date
+// → Controller sends reset link to user email using SMTP service
+// → User clicks link and opens Reset Password page
+// → User enters new password
+// → Controller verifies token validity, hashes password, and saves details
+// ====================================================
+
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
 
-// Generate JWT token
+// Purpose:
+// Generates a JSON Web Token (JWT) signed with the user's database ID.
+//
+// Input:
+// id (string) - The user's MongoDB ObjectId.
+//
+// Output:
+// Returns a signed JWT token string.
+//
+// Usage:
+// Used in signup and login functions to authenticate users on succeeding requests.
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'supersecretkey123', {
     expiresIn: '30d',
   });
 };
 
-// @desc    Register a new user
-// @route   POST /api/auth/signup
-// @access  Public
+// Purpose:
+// Registers a new user account (Candidate or Recruiter).
+//
+// Input:
+// req.body - contains { fullName, email, password, role }.
+//
+// Output:
+// Returns JSON detailing the registered user profile and JWT token on success.
+//
+// Usage:
+// Triggered when submitting the user registration signup form.
 const signup = async (req, res, next) => {
   try {
     const { fullName, email, password, role } = req.body;
 
+    // Validate request body
     if (!fullName || !email || !password || !role) {
       return res.status(400).json({
         success: false,
@@ -39,7 +81,7 @@ const signup = async (req, res, next) => {
       });
     }
 
-    // Check if user already exists
+    // Check if user already exists in database
     const userExists = await User.findOne({ email: email.toLowerCase().trim() });
     if (userExists) {
       return res.status(400).json({
@@ -48,7 +90,7 @@ const signup = async (req, res, next) => {
       });
     }
 
-    // Create user
+    // Save new user profile (Pre-save hook in User model handles hashing)
     const user = await User.create({
       fullName,
       email: email.toLowerCase().trim(),
@@ -72,9 +114,17 @@ const signup = async (req, res, next) => {
   }
 };
 
-// @desc    Authenticate user and get token
-// @route   POST /api/auth/login
-// @access  Public
+// Purpose:
+// Authenticates user credentials (email and password).
+//
+// Input:
+// req.body - contains { email, password }.
+//
+// Output:
+// Returns user details and an auth token if login is successful.
+//
+// Usage:
+// Triggered when submitting the user login form.
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -86,7 +136,7 @@ const login = async (req, res, next) => {
       });
     }
 
-    // Find user by email
+    // Retrieve user profile by email
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
       return res.status(401).json({
@@ -95,7 +145,7 @@ const login = async (req, res, next) => {
       });
     }
 
-    // Match password
+    // Verify entered password matches database hash
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({
@@ -120,12 +170,19 @@ const login = async (req, res, next) => {
   }
 };
 
-// @desc    Get user profile (current user)
-// @route   GET /api/auth/me
-// @access  Private
+// Purpose:
+// Returns profile details of the currently authenticated logged-in session user.
+//
+// Input:
+// req.user (injected by protect middleware).
+//
+// Output:
+// Returns current session user profile JSON.
+//
+// Usage:
+// Used by the client on app launch to check if user has active session.
 const getMe = async (req, res, next) => {
   try {
-    // req.user has already been populated by authMiddleware
     res.status(200).json({
       success: true,
       user: req.user,
@@ -135,9 +192,17 @@ const getMe = async (req, res, next) => {
   }
 };
 
-// @desc    Forgot password - request link
-// @route   POST /api/auth/forgot-password
-// @access  Public
+// Purpose:
+// Generates and emails a temporary password reset URL to the user.
+//
+// Input:
+// req.body - contains { email }.
+//
+// Output:
+// Sends email containing reset link and returns success status JSON.
+//
+// Usage:
+// Triggered when clicking "Submit" on Forgot Password page form.
 const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -158,32 +223,19 @@ const forgotPassword = async (req, res, next) => {
       });
     }
 
-    // Get reset token
+    // Generate reset token and set database expiration
     const resetToken = user.getResetPasswordToken();
 
     await user.save();
 
-    // Create reset URL
+    // Setup client reset URL
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
-    // Email Message Text
-    const message = `Hello ${user.fullName},
+    // Plain text email message content
+    const message = `Hello ${user.fullName},\n\nWe received a request to reset your password.\n\nClick the link below to create a new password:\n\n${resetUrl}\n\nThis link expires in 15 minutes.\n\nIf you did not request this reset, please ignore this email.\n\nRegards,\nJobPortal Pro Team`;
 
-We received a request to reset your password.
-
-Click the link below to create a new password:
-
-${resetUrl}
-
-This link expires in 15 minutes.
-
-If you did not request this reset, please ignore this email.
-
-Regards,
-JobPortal Pro Team`;
-
-    // Email HTML
+    // Rich HTML email message content
     const htmlMessage = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 8px;">
         <h2 style="color: #6366f1; border-bottom: 1px solid #eee; padding-bottom: 10px;">Reset Your Password</h2>
@@ -207,6 +259,7 @@ JobPortal Pro Team`;
     `;
 
     try {
+      // Dispatch email through nodemailer setup
       await sendEmail({
         to: user.email,
         subject: 'Reset Your Password',
@@ -220,6 +273,7 @@ JobPortal Pro Team`;
       });
     } catch (err) {
       console.error('SMTP Email Error:', err.message);
+      // If email fails, clear reset token fields in database
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
       await user.save();
@@ -234,9 +288,17 @@ JobPortal Pro Team`;
   }
 };
 
-// @desc    Reset password using token
-// @route   PUT /api/auth/reset-password/:token
-// @access  Public
+// Purpose:
+// Updates a user's password in the database using reset token.
+//
+// Input:
+// req.params.token (reset token) and req.body.password.
+//
+// Output:
+// Returns success status JSON.
+//
+// Usage:
+// Triggered on ResetPassword page when submitting the new password form.
 const resetPassword = async (req, res, next) => {
   try {
     const { password, newPassword } = req.body;
@@ -256,12 +318,13 @@ const resetPassword = async (req, res, next) => {
       });
     }
 
-    // Get hashed token
+    // Re-create the hash of the token sent in the URL to match with database
     const resetPasswordToken = crypto
       .createHash('sha256')
       .update(req.params.token)
       .digest('hex');
 
+    // Find the user with matching token that has not expired
     const user = await User.findOne({
       resetPasswordToken,
       resetPasswordExpire: { $gt: Date.now() },
@@ -274,7 +337,7 @@ const resetPassword = async (req, res, next) => {
       });
     }
 
-    // Set new password
+    // Save new password details and clear reset state
     user.password = incomingPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;

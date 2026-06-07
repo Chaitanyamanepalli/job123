@@ -1,3 +1,19 @@
+// ====================================================
+// Jobs Search Explorer Page Component
+//
+// This page provides candidate search and filtering controls.
+// Users can query jobs by title keyword, location, job type checkboxes,
+// experience level checkboxes, and sort orders.
+//
+// Features:
+// - Syncs search parameters with home page quick actions.
+// - Supports server-side paginated queries (5 items per page).
+// - Interactive checkbox sidebar updates search results reactively.
+//
+// Used by:
+// - App.jsx (when navigation path targets '/jobs')
+// ====================================================
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../services/api';
 import JobCard from '../components/JobCard';
@@ -5,6 +21,17 @@ import SkeletonCard from '../components/SkeletonCard';
 import { Search, MapPin, AlertTriangle, RefreshCw } from 'lucide-react';
 import CustomSelect from '../components/CustomSelect';
 
+// Purpose:
+// Displays lists of job advertisements with sidebar filters.
+//
+// Input:
+// - globalSearch, setGlobalSearch (string/function): The keyword query shared globally.
+// - globalLocation, setGlobalLocation (string/function): The location query shared globally.
+// - onPageChange (function): Navigates to a specific screen (e.g. Job details view).
+// - onApply (function): Starts the CV submit modal overlay.
+//
+// Output:
+// Renders the list of matching job listings.
 const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation, onPageChange, onApply }) => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,15 +65,24 @@ const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation
     setCurrentPage(1);
   }, [globalLocation]);
 
+  // Purpose:
+  // Fetches matching jobs from the backend based on current filter state.
+  //
+  // Input:
+  // None (reads state parameters: searchTerm, locationTerm, selectedTypes, selectedExps, sortBy, currentPage).
+  //
+  // Output:
+  // Stores returned job list, total jobs count, and total page count in state.
   const fetchJobs = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
 
-      // Build query params
+      // Build parameters string for types and experience levels. If none selected, default to 'All'.
       const typeQuery = selectedTypes.length === 0 ? 'All' : selectedTypes.join(',');
       const expQuery = selectedExps.length === 0 ? 'All' : selectedExps.join(',');
 
+      // Send the query to the server
       const res = await api.getJobs({
         search: searchTerm,
         location: locationTerm,
@@ -67,10 +103,19 @@ const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation
     }
   }, [searchTerm, locationTerm, selectedTypes, selectedExps, sortBy, currentPage]);
 
+  // Fetch jobs whenever search terms or filter parameters change
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
 
+  // Purpose:
+  // Triggers search when pressing Enter or clicking the Search button.
+  //
+  // Input:
+  // e (Event) - Submit event.
+  //
+  // Output:
+  // Updates global queries and resets search results back to Page 1.
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setGlobalSearch(searchTerm);
@@ -78,38 +123,62 @@ const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation
     setCurrentPage(1);
   };
 
+  // Purpose:
+  // Selects or deselects job type filters (e.g. Full Time, Part Time).
+  //
+  // Input:
+  // type (string) - The checkbox name selected.
+  //
+  // Output:
+  // Toggles item in selectedTypes array and resets pagination to page 1.
   const handleTypeCheck = (type) => {
     setCurrentPage(1);
     if (type === 'All') {
-      setSelectedTypes([]);
+      setSelectedTypes([]); // Reset all filters
       return;
     }
 
     setSelectedTypes(prev => {
       if (prev.includes(type)) {
-        return prev.filter(t => t !== type);
+        return prev.filter(t => t !== type); // Uncheck it
       } else {
-        return [...prev, type];
+        return [...prev, type]; // Check it
       }
     });
   };
 
+  // Purpose:
+  // Selects or deselects experience level filters (e.g. Fresher, 1-3 Years).
+  //
+  // Input:
+  // exp (string) - The experience name selected.
+  //
+  // Output:
+  // Toggles item in selectedExps array and resets pagination to page 1.
   const handleExpCheck = (exp) => {
     setCurrentPage(1);
     if (exp === 'All') {
-      setSelectedExps([]);
+      setSelectedExps([]); // Reset all filters
       return;
     }
 
     setSelectedExps(prev => {
       if (prev.includes(exp)) {
-        return prev.filter(e => e !== exp);
+        return prev.filter(e => e !== exp); // Uncheck it
       } else {
-        return [...prev, exp];
+        return [...prev, exp]; // Check it
       }
     });
   };
 
+  // Purpose:
+  // Clears all active filters and input fields.
+  //
+  // Input:
+  // None.
+  //
+  // Output:
+  // Resets state variables to original empty lists and navigates back to Page 1.
   const handleResetFilters = () => {
     setSearchTerm('');
     setLocationTerm('');
@@ -121,11 +190,27 @@ const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation
     setCurrentPage(1);
   };
 
+  // Purpose:
+  // Updates the sort ordering configuration.
+  //
+  // Input:
+  // e (Event) - Select change event.
+  //
+  // Output:
+  // Updates sortBy state and resets to Page 1.
   const handleSortChange = (e) => {
     setSortBy(e.target.value);
     setCurrentPage(1);
   };
 
+  // Purpose:
+  // Navigates to a different page number in the paginated job listing.
+  //
+  // Input:
+  // pageNum (number) - The page number target.
+  //
+  // Output:
+  // Updates current page index and scrolls page back to top.
   const handlePageChange = (pageNum) => {
     if (pageNum >= 1 && pageNum <= totalPages) {
       setCurrentPage(pageNum);

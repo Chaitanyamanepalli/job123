@@ -1,3 +1,21 @@
+// ====================================================
+// Root Client Application Container (Single Page Router)
+//
+// This is the core file of the client application.
+// It wraps the entire app in a ThemeProvider, manages client-side routing state,
+// stores session credentials globally, enforces route security guards,
+// and coordinates overlay modals (like the Logout and Application popups).
+//
+// Features:
+// - Mock Routing: Simulates a router using popstate and window.history history stacks.
+// - Authorization Guards: Verifies user roles and session tokens to block unauthorized page views.
+// - Shared Toast alerts: Renders a floating notification banner on success or error messages.
+// - Persistent session restoration: Recovers user profiles from localStorage or sessionStorage on page reload.
+//
+// Used by:
+// - main.jsx (renders <App /> inside root element container)
+// ====================================================
+
 import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import Navbar from './components/Navbar';
@@ -18,11 +36,19 @@ import ResetPassword from './pages/ResetPassword';
 import About from './pages/About';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
+// Purpose:
+// Orchestrates visual routing views, authentication updates, and alert notifications.
+//
+// Input:
+// None.
+//
+// Output:
+// Returns the global visual frame (Navbar, Page View, Footer, Toast, Modal overlays).
 const AppContent = () => {
-  // Navigation Path State
+  // Simulates URL location pathname routing state
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   
-  // Auth State
+  // Authenticated user profile and session JWT token keys
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem('user') || sessionStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
@@ -31,16 +57,17 @@ const AppContent = () => {
     return localStorage.getItem('token') || sessionStorage.getItem('token');
   });
 
+  // Global search filters synced across Home hero and Job Search page
   const [globalSearch, setGlobalSearch] = useState('');
   const [globalLocation, setGlobalLocation] = useState('');
   
-  // Apply Modal state
+  // Control toggles for overlay modals
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [jobToApply, setJobToApply] = useState(null);
   const [appliedJobIds, setAppliedJobIds] = useState([]);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
-  // Fetch candidate's applied jobs on mount / login
+  // Fetch list of jobs the candidate user has already submitted CVs for
   useEffect(() => {
     const fetchAppliedJobs = async () => {
       if (user && user.role === 'candidate') {
@@ -60,17 +87,21 @@ const AppContent = () => {
     fetchAppliedJobs();
   }, [user]);
 
-  // Success/Error Toast alert banner
+  // Floating Toast alert visual state
   const [alert, setAlert] = useState(null);
 
-  // Custom navigate function
+  // Purpose:
+  // Updates the browser history stack and sets current route state path.
+  //
+  // Input:
+  // to (string) - The target URL path (e.g. '/login').
   const navigate = (to) => {
     window.history.pushState(null, '', to);
     setCurrentPath(to);
-    window.scrollTo(0, 0);
+    window.scrollTo(0, 0); // Scroll page back to top on transitions
   };
 
-  // Listen for browser navigation (back/forward keys)
+  // Listen for browser forward/back button popstate events
   useEffect(() => {
     const handlePopState = () => {
       setCurrentPath(window.location.pathname);
@@ -79,13 +110,25 @@ const AppContent = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Purpose:
+  // Displays a success or error banner at the top of the viewport.
+  //
+  // Input:
+  // - message (string): Alert text.
+  // - type (string): "success" or "error".
   const triggerAlert = (message, type = 'success') => {
     setAlert({ message, type });
+    // Automatically close banner after 5 seconds
     setTimeout(() => {
       setAlert(null);
     }, 5000);
   };
 
+  // Purpose:
+  // Opens the application modal. Prompts guests to log in first.
+  //
+  // Input:
+  // job (object) - The target job document candidate clicked.
   const handleApplyTrigger = (job) => {
     if (!user) {
       triggerAlert('Please login to continue.', 'error');
@@ -96,6 +139,7 @@ const AppContent = () => {
     setApplyModalOpen(true);
   };
 
+  // Adds recently applied job IDs to the local candidate tracking list
   const handleApplySuccess = () => {
     triggerAlert('Application submitted successfully! Track it in "My Applications".');
     if (jobToApply) {
@@ -103,6 +147,12 @@ const AppContent = () => {
     }
   };
 
+  // Purpose:
+  // Saves newly authenticated credentials, triggers toast, and redirects to role dashboard.
+  //
+  // Input:
+  // - authUser (object): Signed-in user profile.
+  // - authToken (string): JWT session token.
   const handleAuthSuccess = (authUser, authToken) => {
     setUser(authUser);
     setToken(authToken);
@@ -114,10 +164,13 @@ const AppContent = () => {
     }
   };
 
+  // Triggers the Logout Confirmation Overlay Popup modal
   const handleLogout = () => {
     setLogoutModalOpen(true);
   };
 
+  // Purpose:
+  // Destroys token keys on logout confirmation, resets session, and navigates home.
   const executeLogout = () => {
     setLogoutModalOpen(false);
     localStorage.removeItem('token');
@@ -131,11 +184,18 @@ const AppContent = () => {
     navigate('/');
   };
 
+  // Purpose:
+  // Central page route redirection helper.
+  //
+  // Input:
+  // - page (string): Target page alias or path.
+  // - params (object): Additional queries (like job details ID).
   const handlePageChange = (page, params = {}) => {
     const target = page === '/' ? 'home' : page;
     if (target === 'home' || target === '/') {
       navigate('/');
     } else if (target === 'jobs' || target === '/jobs') {
+      // Clear filters on fresh transitions, unless parameter overrides
       if (params.keepFilters !== true) {
         setGlobalSearch('');
         setGlobalLocation('');
@@ -158,11 +218,18 @@ const AppContent = () => {
     }
   };
 
-  // Parse path to route
+  // Purpose:
+  // Decodes the current window URL pathname and maps it to a structured route state name.
+  //
+  // Input:
+  // None (reads currentPath state).
+  //
+  // Output:
+  // Returns an object containing the resolved page name and dynamic path parameters.
   const parseRoute = () => {
     let path = currentPath;
     
-    // Static routes
+    // Resolve static pages first
     if (path === '/' || path === '') return { name: 'home' };
     if (path === '/jobs') return { name: 'jobs' };
     if (path === '/my-applications') return { name: 'my-applications' };
@@ -171,23 +238,25 @@ const AppContent = () => {
     if (path === '/signup') return { name: 'signup' };
     if (path === '/forgot-password') return { name: 'forgot-password' };
     if (path === '/about') return { name: 'about' };
+
+    // Resolve Reset Password token path pattern using dynamic regex matching
     const resetPasswordMatch = path.match(/^\/reset-password\/([a-zA-Z0-9_-]+)$/);
     if (resetPasswordMatch) {
       return { name: 'reset-password', params: { token: resetPasswordMatch[1] } };
     }
+
+    // Resolve Recruiter paths (handled within RecruiterDashboard component router sub-view)
     if (path === '/recruiter/dashboard' || path === '/recruiter/jobs' || path === '/recruiter/create-job' || path.startsWith('/recruiter/edit-job') || path === '/recruiter/applications') {
-      // Recruiter actions are handled inside recruiter-dashboard
       return { name: 'recruiter-dashboard' };
     }
 
-    // Dynamic candidate routes
-    // Match /jobs/:id
+    // Resolve dynamic Candidate Job Details path pattern: /jobs/:id
     const jobDetailsMatch = path.match(/^\/jobs\/([a-fA-F0-9]{24}|[0-9]+)$/);
     if (jobDetailsMatch) {
       return { name: 'job-details', params: { id: jobDetailsMatch[1] } };
     }
 
-    // Fallback
+    // Fallback default path
     return { name: 'home' };
   };
 

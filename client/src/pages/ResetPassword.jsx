@@ -1,7 +1,35 @@
+// ====================================================
+// Reset Password Page Component
+//
+// This component lets users create a new password after requesting a password reset.
+// It receives a secure token from the reset link they clicked in their email.
+//
+// Features:
+// - Validates that the new password is secure (at least 6 characters).
+// - Confirms the second password matches the first one.
+// - Sends the token and the new password to the server to update the account.
+// - Redirects users automatically to the Login page on success.
+//
+// Used by:
+// - App.jsx (when users load a URL path containing a reset password token)
+// ====================================================
+
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 
+// Purpose:
+// Renders the password reset form and handles submissions.
+//
+// Input:
+// - token (string): The secret token extracted from the URL link.
+// - onPageChange (function): Callback to redirect the user to another page.
+//
+// Output:
+// Renders a secure password update card.
+//
+// Usage:
+// <ResetPassword token={token} onPageChange={handleNavigate} />
 const ResetPassword = ({ token, onPageChange }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -14,15 +42,25 @@ const ResetPassword = ({ token, onPageChange }) => {
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Purpose:
+  // Checks if the user entered valid passwords in both inputs before sending to server.
+  //
+  // Input:
+  // None (reads newPassword and confirmPassword states).
+  //
+  // Output:
+  // Returns true if both passwords are valid and match, false otherwise. Sets errors state.
   const validateForm = () => {
     const tempErrors = {};
 
+    // Make sure new password is entered and has minimum length
     if (!newPassword) {
       tempErrors.newPassword = 'New Password is required';
     } else if (newPassword.length < 6) {
       tempErrors.newPassword = 'Password must be at least 6 characters long';
     }
 
+    // Make sure second password is entered and matches the first
     if (!confirmPassword) {
       tempErrors.confirmPassword = 'Confirm Password is required';
     } else if (newPassword !== confirmPassword) {
@@ -33,20 +71,32 @@ const ResetPassword = ({ token, onPageChange }) => {
     return Object.keys(tempErrors).length === 0;
   };
 
+  // Purpose:
+  // Handles form submission, calls the API to reset the password, and redirects to Login.
+  //
+  // Input:
+  // e (Event) - Form submission event.
+  //
+  // Output:
+  // Saves changes on server, shows success or error messages, and triggers redirect on success.
   const handleSubmit = async (e) => {
     e.preventDefault();
     setApiError('');
     setSuccessMsg('');
-    if (!validateForm()) return;
+    if (!validateForm()) return; // Stop if inputs are invalid
 
     try {
       setLoading(true);
+      // Call api service with token and new password
       const res = await api.resetPassword(token, newPassword);
       setSuccessMsg(res.message || 'Password reset successful! Redirecting to Login...');
+      
+      // Wait 3 seconds so the user can read the success message before going to login page
       setTimeout(() => {
         onPageChange('/login');
       }, 3000);
     } catch (err) {
+      // Capture error from API (e.g. token expired or invalid)
       setApiError(err.message || 'Failed to reset password. Token may have expired.');
     } finally {
       setLoading(false);

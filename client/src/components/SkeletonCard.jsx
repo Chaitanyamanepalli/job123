@@ -1,5 +1,27 @@
+// ====================================================
+// Skeleton Card Loading Placeholder
+//
+// This file renders an animated placeholder layout imitating JobCards.
+// It is displayed while jobs list details are being fetched from the backend.
+//
+// Features:
+// - Shimmering CSS animations.
+// - Grid block shapes matches the actual JobCard cards layout.
+//
+// Used by:
+// - Jobs.jsx (rendered as a grid when data is loading)
+// ====================================================
+
 import React from 'react';
 
+// Purpose:
+// Renders the shimmer card placeholder.
+//
+// Input:
+// None.
+//
+// Output:
+// Returns the skeleton card elements with matching grid sizes.
 const SkeletonCard = () => {
   return (
     <div className="skeleton-card">

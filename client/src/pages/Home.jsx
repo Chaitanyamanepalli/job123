@@ -1,9 +1,33 @@
+// ====================================================
+// Home Page Component
+//
+// This is the main landing page of the JobPortal Pro application.
+// It displays a welcoming hero section with search bars, popular terms,
+// and shows a grid of 4 featured job listings.
+//
+// Features:
+// - A double-input search box for filtering job titles and locations.
+// - Quick search pills for popular job tags like Developer or Designer.
+// - An interactive list of recently posted featured jobs.
+//
+// Used by:
+// - App.jsx (when the visual page state matches '/')
+// ====================================================
+
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import JobCard from '../components/JobCard';
 import SkeletonCard from '../components/SkeletonCard';
 import { Search, MapPin, ArrowRight } from 'lucide-react';
 
+// Purpose:
+// Draws a modern, SVG-based floating icon illustration on the right side of the hero section.
+//
+// Input:
+// None.
+//
+// Output:
+// Returns SVG code representing an employee working at a desk.
 const HeroIllustration = () => (
   <svg viewBox="0 0 500 400" width="100%" height="100%" style={{ maxWidth: '480px', margin: 'auto', display: 'block' }}>
     {/* Background Decorative Rings */}
@@ -99,17 +123,30 @@ const HeroIllustration = () => (
   </svg>
 );
 
+// Purpose:
+// Renders the home screen page containing a hero search bar and list of featured jobs.
+//
+// Input:
+// - onPageChange (function): Navigates to a different page route.
+// - onApply (function): Triggers the job application popup.
+// - setGlobalSearch (function): Stores search terms globally in App.jsx.
+// - setGlobalLocation (function): Stores location query globally in App.jsx.
+//
+// Output:
+// Renders the Hero layout and featured jobs grid.
 const Home = ({ onPageChange, onApply, setGlobalSearch, setGlobalLocation }) => {
+  // Local state to store fetched jobs and loading/input states
   const [featuredJobs, setFeaturedJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchVal, setSearchVal] = useState('');
   const [locationVal, setLocationVal] = useState('');
 
+  // Fetch featured jobs on initial component load
   useEffect(() => {
     const fetchFeatured = async () => {
       try {
         setLoading(true);
-        // Fetch 4 jobs to match the mockup grid exactly
+        // Fetch 4 jobs to match the home grid design
         const res = await api.getJobs({ limit: 4 });
         setFeaturedJobs(res.jobs || []);
       } catch (err) {
@@ -121,6 +158,14 @@ const Home = ({ onPageChange, onApply, setGlobalSearch, setGlobalLocation }) => 
     fetchFeatured();
   }, []);
 
+  // Purpose:
+  // Handles form submission for the main hero search box.
+  //
+  // Input:
+  // e (Event) - Submit event.
+  //
+  // Output:
+  // Saves queries globally and navigates to the list of all jobs with filters active.
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setGlobalSearch(searchVal);
@@ -128,6 +173,14 @@ const Home = ({ onPageChange, onApply, setGlobalSearch, setGlobalLocation }) => 
     onPageChange('jobs', { keepFilters: true });
   };
 
+  // Purpose:
+  // Handles clicks on popular tags (like "Developer" or "Designer").
+  //
+  // Input:
+  // term (string) - The keyword tag clicked.
+  //
+  // Output:
+  // Updates search term and redirects to Jobs page.
   const handlePopularSearch = (term) => {
     setGlobalSearch(term);
     setGlobalLocation('');

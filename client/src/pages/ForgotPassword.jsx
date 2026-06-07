@@ -1,7 +1,33 @@
+// ====================================================
+// Forgot Password Page
+//
+// This page allows users to request a password recovery email.
+// It verifies email syntax and connects with backend SMTP email handlers.
+//
+// Features:
+// - Client-side syntax validation.
+// - Connects with API forgotPassword endpoint to trigger password reset flow.
+// - Handles success and error alerts.
+//
+// Password Reset Flow:
+// User enters registered email
+// → Submits form
+// → API triggers unique reset token generation
+// → Reset link containing token sent to user inbox
+// ====================================================
+
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Mail, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
 
+// Purpose:
+// Renders the Forgot Password form.
+//
+// Input:
+// onPageChange (function) - Redirect navigation callback.
+//
+// Output:
+// Returns the ForgotPassword page JSX structure.
 const ForgotPassword = ({ onPageChange }) => {
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState({});
@@ -9,6 +35,14 @@ const ForgotPassword = ({ onPageChange }) => {
   const [apiError, setApiError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Purpose:
+  // Verifies the user email input before calling API.
+  //
+  // Input:
+  // None.
+  //
+  // Output:
+  // Returns true if email format check passes, otherwise false and sets errors state.
   const validateForm = () => {
     const tempErrors = {};
     const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
@@ -23,6 +57,14 @@ const ForgotPassword = ({ onPageChange }) => {
     return Object.keys(tempErrors).length === 0;
   };
 
+  // Purpose:
+  // Dispatches the reset password request to the API.
+  //
+  // Input:
+  // e (Event) - Submit event.
+  //
+  // Output:
+  // None. Sets success or failure state based on response.
   const handleSubmit = async (e) => {
     e.preventDefault();
     setApiError('');
@@ -43,6 +85,7 @@ const ForgotPassword = ({ onPageChange }) => {
   return (
     <div className="auth-page-container container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 160px)', padding: '2rem 1.5rem' }}>
       <div className="auth-card" style={{ maxWidth: '480px', width: '100%' }}>
+        {/* Back to login option */}
         <button
           type="button"
           onClick={() => onPageChange('/login')}
@@ -72,7 +115,6 @@ const ForgotPassword = ({ onPageChange }) => {
         )}
 
         <form onSubmit={handleSubmit} className="auth-form">
-          {/* Email */}
           <div className="form-group" style={{ marginBottom: '1.5rem' }}>
             <label className="form-label">Email Address</label>
             <div className="auth-input-wrapper">

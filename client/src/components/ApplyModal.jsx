@@ -1,7 +1,33 @@
+// ====================================================
+// Apply Job Form Modal Component
+//
+// This file renders the popup form allowing candidates to apply for a job posting.
+// It verifies inputs client-side, submits requests to the backend api, and caches emails.
+//
+// Features:
+// - Caches and pre-fills email addresses for quicker submission on subsequent applications.
+// - Client-side validation checks (email syntax, phone digits length).
+// - Loading states while API request processes.
+//
+// Used by:
+// - App.jsx (shared modal rendered at the top layout level)
+// ====================================================
+
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { api } from '../services/api';
 
+// Purpose:
+// Renders the job application form inside a reusable modal.
+//
+// Input:
+// isOpen (boolean) - Toggles visibility.
+// onClose (function) - Close handler.
+// job (Object) - Details of the active job listing target.
+// onApplySuccess (function) - Callback on success.
+//
+// Output:
+// Returns the Modal component containing form inputs.
 const ApplyModal = ({ isOpen, onClose, job, onApplySuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -11,7 +37,7 @@ const ApplyModal = ({ isOpen, onClose, job, onApplySuccess }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Prefill email if cached in LocalStorage
+  // Prefill candidate email from localStorage if available when opening modal
   useEffect(() => {
     if (isOpen) {
       const cachedEmail = localStorage.getItem('candidateEmail') || '';
@@ -24,11 +50,20 @@ const ApplyModal = ({ isOpen, onClose, job, onApplySuccess }) => {
     }
   }, [isOpen]);
 
+  // Handle keystroke inputs in state
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Purpose:
+  // Verifies user input correctness on applicant forms.
+  //
+  // Input:
+  // None (reads state formData).
+  //
+  // Output:
+  // Returns true if validation checks pass, otherwise false and updates errors state.
   const validate = () => {
     const newErrors = {};
     if (!formData.name.trim()) {
@@ -53,6 +88,14 @@ const ApplyModal = ({ isOpen, onClose, job, onApplySuccess }) => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Purpose:
+  // Dispatches the API request to submit the job application.
+  //
+  // Input:
+  // e (Event) - Submit event.
+  //
+  // Output:
+  // None. Closes modal and fires trigger on success, otherwise sets error messages.
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
@@ -61,7 +104,7 @@ const ApplyModal = ({ isOpen, onClose, job, onApplySuccess }) => {
       setLoading(true);
       await api.applyJob(job._id, formData);
       
-      // Store email in local storage for later tracking
+      // Store email in local storage for later pre-filling
       localStorage.setItem('candidateEmail', formData.email.trim().toLowerCase());
       
       onApplySuccess();

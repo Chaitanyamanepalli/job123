@@ -1,3 +1,19 @@
+// ====================================================
+// Candidate Dashboard / Applications Tracker Page
+//
+// This component renders the personal dashboard screen for logged-in candidates.
+// It displays a navigation sidebar on the left and selected tabs (My Applications or Saved Jobs) on the right.
+//
+// Features:
+// - Fetches a list of the user's submitted job applications (status, date, details).
+// - Fetches lists of saved job posts from LocalStorage.
+// - Supports client-side live filtering (by company keyword, job type dropdowns, sorting order).
+// - Displays status counters: Under Review, Shortlisted, Rejected.
+//
+// Used by:
+// - App.jsx (loaded when route state targets '/dashboard' and user role is 'candidate')
+// ====================================================
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -17,6 +33,16 @@ import {
 } from 'lucide-react';
 import CustomSelect from '../components/CustomSelect';
 
+// Purpose:
+// Displays candidate's job hunting statistics, bookmarks, and logs.
+//
+// Input:
+// - onPageChange (function): Navigation function callback.
+// - onApply (function): Starts the application form popup.
+// - onLogout (function): Triggers session destruction.
+//
+// Output:
+// Renders the Sidebar Layout and Active Panel contents.
 const MyApplications = ({ onPageChange, onApply, onLogout }) => {
   // Retrieve authenticated candidate user details
   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
@@ -35,6 +61,14 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
   const [selectedType, setSelectedType] = useState('All');
   const [sortBy, setSortBy] = useState('Most Recent');
 
+  // Purpose:
+  // Fetches all job applications submitted by this candidate from backend.
+  //
+  // Input:
+  // None.
+  //
+  // Output:
+  // Sets applications state array on success, or sets error state on failure.
   const fetchUserApplications = useCallback(async () => {
     try {
       setLoading(true);
@@ -49,6 +83,14 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
     }
   }, []);
 
+  // Purpose:
+  // Reads saved job IDs from LocalStorage and fetches each job's details from backend.
+  //
+  // Input:
+  // None.
+  //
+  // Output:
+  // populates savedJobs state array with complete job objects.
   const fetchSavedJobs = useCallback(async () => {
     const savedStr = localStorage.getItem('savedJobIds') || '[]';
     const savedIds = JSON.parse(savedStr);
@@ -61,6 +103,7 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
     try {
       setSavedJobsLoading(true);
       const jobsList = [];
+      // Fetch each job record concurrently
       await Promise.all(
         savedIds.map(async (id) => {
           try {
@@ -81,6 +124,7 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
     }
   }, []);
 
+  // Sync tab navigation action triggers
   useEffect(() => {
     if (activeTab === 'applications') {
       fetchUserApplications();
@@ -89,9 +133,17 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
     }
   }, [activeTab, fetchUserApplications, fetchSavedJobs]);
 
+  // Purpose:
+  // Handles click events on the Sidebar Logout button.
+  //
+  // Input:
+  // None.
+  //
+  // Output:
+  // Clears user storage and takes candidate back to the Landing home page.
   const handleLogoutClick = () => {
     if (onLogout) {
-      onLogout();
+      onLogout(); // Delegated to global confirmation modal in App.jsx
     } else {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -101,6 +153,11 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
     }
   };
 
+  // Purpose:
+  // Shows alerts for sidebar buttons that are not implemented yet.
+  //
+  // Input:
+  // name (string) - Button name.
   const handlePlaceholderNav = (name) => {
     if (name === 'Profile') {
       onPageChange('/profile');
@@ -109,10 +166,18 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
     }
   };
 
-  // Filter application list client-side
+  // Purpose:
+  // Processes client-side search query, type selection, and sorting.
+  //
+  // Input:
+  // None (reads applications, searchTerm, selectedType, sortBy states).
+  //
+  // Output:
+  // Returns filtered and sorted applications array.
   const getFilteredApplications = () => {
     let result = [...applications];
 
+    // Filter by company name or job title matching the search keyword
     if (searchTerm.trim()) {
       const query = searchTerm.toLowerCase();
       result = result.filter(app => {
@@ -122,10 +187,12 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
       });
     }
 
+    // Filter by dropdown type selection
     if (selectedType !== 'All' && selectedType !== 'All Job Types') {
       result = result.filter(app => app.jobId?.jobType === selectedType);
     }
 
+    // Sort by most recent application date or oldest application date
     result.sort((a, b) => {
       const dateA = new Date(a.appliedAt).getTime();
       const dateB = new Date(b.appliedAt).getTime();

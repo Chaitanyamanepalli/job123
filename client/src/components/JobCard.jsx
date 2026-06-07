@@ -1,9 +1,38 @@
+// ====================================================
+// Job Card Component
+//
+// This component renders a brief card preview of a single job listing.
+//
+// Features:
+// - Custom SVG brand logos matching target companies (Google, Microsoft, Amazon, Deloitte)
+// - Fallback to colorful placeholder letter avatars for generic companies.
+// - Formats salary numbers to INR localization.
+// - Dynamically displays days elapsed since creation (e.g. "Today", "2 days ago").
+// - Includes a Bookmark/Save button which is hidden from Recruiter users.
+//
+// Used by:
+// - Home.jsx (renders hot job lists)
+// - Jobs.jsx (renders grid list of matched search jobs)
+// - MyApplications.jsx (renders bookmarked/saved jobs tab list)
+// ====================================================
+
 import React, { useState } from 'react';
 import { MapPin, Clock, Bookmark, Calendar } from 'lucide-react';
 
+// Purpose:
+// Helper sub-component that outputs high-quality company branding logos.
+//
+// Input:
+// company (string) - Name of company (e.g. "Google").
+// logo (string) - Logo ID string.
+// size (number) - Width/height dimension.
+//
+// Output:
+// Returns SVG brand shapes or a generic colorful letter icon wrapper.
 export const CompanyLogo = ({ company = '', logo = '', size = 32 }) => {
   const normalizedLogo = (logo || company).toLowerCase();
 
+  // Draw custom Google SVG
   if (normalizedLogo.includes('google')) {
     return (
       <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -17,6 +46,7 @@ export const CompanyLogo = ({ company = '', logo = '', size = 32 }) => {
     );
   }
 
+  // Draw custom Microsoft SVG
   if (normalizedLogo.includes('microsoft')) {
     return (
       <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -30,6 +60,7 @@ export const CompanyLogo = ({ company = '', logo = '', size = 32 }) => {
     );
   }
 
+  // Draw custom Amazon SVG
   if (normalizedLogo.includes('amazon')) {
     return (
       <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -40,6 +71,7 @@ export const CompanyLogo = ({ company = '', logo = '', size = 32 }) => {
     );
   }
 
+  // Draw custom Deloitte SVG
   if (normalizedLogo.includes('deloitte')) {
     return (
       <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -52,12 +84,12 @@ export const CompanyLogo = ({ company = '', logo = '', size = 32 }) => {
     );
   }
 
-  // Generic Logo Fallback
+  // Generic Logo Fallback (renders a colored square containing the company's first letter)
   const firstLetter = company ? company.charAt(0).toUpperCase() : 'J';
   const colors = [
     '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#6366F1', '#8B5CF6', '#EC4899'
   ];
-  // Stable color choice based on company name hash
+  // Select a consistent color color based on the company's name character codes
   const charCodeSum = company.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const bgColor = colors[charCodeSum % colors.length];
 
@@ -79,14 +111,27 @@ export const CompanyLogo = ({ company = '', logo = '', size = 32 }) => {
   );
 };
 
+// Purpose:
+// Renders the job summary card component.
+//
+// Input:
+// job (Object) - Holds individual job properties (title, company, salary, experience, etc.)
+// onViewDetails (function) - redicrect callback when clicking the card.
+// onApply (function) - apply trigger callback.
+//
+// Output:
+// Returns the clickable JobCard item.
 const JobCard = ({ job, onViewDetails, onApply }) => {
+  // Read active session user profile context details
   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
 
+  // Verify if this job is bookmarked/saved by reading client local storage
   const [isBookmarked, setIsBookmarked] = useState(() => {
     const savedStr = localStorage.getItem('savedJobIds') || '[]';
     return JSON.parse(savedStr).includes(job._id);
   });
 
+  // Convert annual salary number to Indian Rupee (INR) currency format
   const formatSalary = (amount) => {
     if (job.salaryRange) return job.salaryRange;
     return new Intl.NumberFormat('en-IN', {
@@ -96,6 +141,7 @@ const JobCard = ({ job, onViewDetails, onApply }) => {
     }).format(amount) + ' / yr';
   };
 
+  // Convert job creation date to a relative human-readable timeline text
   const getPostedDays = () => {
     const createdDate = new Date(job.createdAt || Date.now());
     const diffTime = Math.abs(new Date() - createdDate);
@@ -106,8 +152,9 @@ const JobCard = ({ job, onViewDetails, onApply }) => {
     return `${diffDays} days ago`;
   };
 
+  // Handles adding or removing a job ID from the user's local saved jobs list
   const handleBookmarkToggle = (e) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Avoid triggering card details redirection click
     const savedStr = localStorage.getItem('savedJobIds') || '[]';
     let saved = JSON.parse(savedStr);
     let nextState = false;
@@ -138,6 +185,7 @@ const JobCard = ({ job, onViewDetails, onApply }) => {
           </div>
         </div>
         
+        {/* Only show Bookmark button for guests or candidate users */}
         {(!user || user.role !== 'recruiter') && (
           <button 
             onClick={handleBookmarkToggle}

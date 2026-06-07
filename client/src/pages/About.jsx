@@ -1,6 +1,29 @@
+// ====================================================
+// About Page
+//
+// This page provides background context about JobPortal Pro.
+// It explains the mission of the platform, the workflow details for both
+// recruiters and candidates, and displays direct CTA redirect actions.
+//
+// Features:
+// - Clean structure outlining company mission.
+// - Workflow timeline lists explaining candidate vs recruiter actions.
+//
+// Used by:
+// - Navbar.jsx / Footer.jsx (redirect link option targets)
+// ====================================================
+
 import React from 'react';
 import { Briefcase, Users, Award, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react';
 
+// Purpose:
+// Renders the static "About Us" page layout.
+//
+// Input:
+// onPageChange (function) - Redirect navigation callback.
+//
+// Output:
+// Returns the About page JSX.
 const About = ({ onPageChange }) => {
   return (
     <div className="about-page-container">

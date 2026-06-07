@@ -1,6 +1,29 @@
+// ====================================================
+// Footer Component
+//
+// This file renders the standard page footer structure at the bottom of the viewport.
+// It maps links to static pages or shows alert prompts for placeholder sections.
+//
+// Features:
+// - Dynamic copyright year display using JavaScript.
+// - Integration with the global `onPageChange` routing method.
+//
+// Used by:
+// - App.jsx (shared layout rendering)
+// ====================================================
+
 import React from 'react';
 
+// Purpose:
+// Renders the footer container layout.
+//
+// Input:
+// onPageChange (function) - Callback navigation action.
+//
+// Output:
+// Returns the footer JSX layout.
 const Footer = ({ onPageChange }) => {
+  // Alert wrapper to signify incomplete placeholder features
   const handleFooterClick = (e, name) => {
     e.preventDefault();
     alert(`${name} section is coming soon! Thank you for exploring JobPortal Pro.`);
