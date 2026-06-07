@@ -257,6 +257,7 @@ const AppContent = () => {
             onPageChange={handlePageChange} 
             onApply={handleApplyTrigger}
             appliedJobIds={appliedJobIds}
+            user={user}
           />
         );
       case 'recruiter-dashboard':

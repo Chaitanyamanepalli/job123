@@ -86,7 +86,7 @@ const parseJobDescription = (desc) => {
   return { overview, responsibilities, requirements };
 };
 
-const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [] }) => {
+const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [], user }) => {
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -177,6 +177,11 @@ const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [] }) =
     }).format(amount) + ' / yr';
   };
 
+  const isOwner = user && job && (
+    job.postedBy === user._id || 
+    (job.postedBy && job.postedBy._id === user._id)
+  );
+
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '5rem' }}>
       
@@ -234,39 +239,71 @@ const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [] }) =
 
             {/* Action buttons */}
             <div className="details-header-actions">
-              {job && appliedJobIds.includes(job._id) ? (
-                <button 
-                  className="details-action-apply-now-btn"
-                  disabled
-                  style={{
-                    backgroundColor: 'var(--success)',
-                    color: '#ffffff',
-                    cursor: 'not-allowed',
-                    opacity: 0.85,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
-                  }}
-                >
-                  <Check size={18} />
-                  <span>Applied</span>
-                </button>
+              {user && user.role === 'recruiter' ? (
+                isOwner ? (
+                  <button 
+                    className="details-action-apply-now-btn"
+                    onClick={() => onPageChange(`/recruiter/edit-job/${job._id}`)}
+                    style={{
+                      backgroundColor: 'var(--accent)',
+                      color: '#111111',
+                      fontWeight: 600
+                    }}
+                  >
+                    Edit Job
+                  </button>
+                ) : (
+                  <button 
+                    className="details-action-apply-now-btn"
+                    disabled
+                    style={{
+                      backgroundColor: 'var(--border-color)',
+                      color: 'var(--text-secondary)',
+                      cursor: 'not-allowed',
+                      opacity: 0.7,
+                      fontWeight: 600
+                    }}
+                  >
+                    Recruiter View
+                  </button>
+                )
               ) : (
-                <button 
-                  className="details-action-apply-now-btn"
-                  onClick={() => onApply(job)}
-                >
-                  Apply Now
-                </button>
+                job && appliedJobIds.includes(job._id) ? (
+                  <button 
+                    className="details-action-apply-now-btn"
+                    disabled
+                    style={{
+                      backgroundColor: 'var(--success)',
+                      color: '#ffffff',
+                      cursor: 'not-allowed',
+                      opacity: 0.85,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}
+                  >
+                    <Check size={18} />
+                    <span>Applied</span>
+                  </button>
+                ) : (
+                  <button 
+                    className="details-action-apply-now-btn"
+                    onClick={() => onApply(job)}
+                  >
+                    Apply Now
+                  </button>
+                )
               )}
               
-              <button 
-                className={`details-action-save-job-btn ${isBookmarked ? 'active' : ''}`}
-                onClick={handleBookmarkToggle}
-              >
-                <Bookmark size={18} fill={isBookmarked ? "currentColor" : "none"} />
-                <span>{isBookmarked ? "Saved" : "Save Job"}</span>
-              </button>
+              {(!user || user.role !== 'recruiter') && (
+                <button 
+                  className={`details-action-save-job-btn ${isBookmarked ? 'active' : ''}`}
+                  onClick={handleBookmarkToggle}
+                >
+                  <Bookmark size={18} fill={isBookmarked ? "currentColor" : "none"} />
+                  <span>{isBookmarked ? "Saved" : "Save Job"}</span>
+                </button>
+              )}
             </div>
           </div>
 

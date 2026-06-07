@@ -80,6 +80,8 @@ export const CompanyLogo = ({ company = '', logo = '', size = 32 }) => {
 };
 
 const JobCard = ({ job, onViewDetails, onApply }) => {
+  const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+
   const [isBookmarked, setIsBookmarked] = useState(() => {
     const savedStr = localStorage.getItem('savedJobIds') || '[]';
     return JSON.parse(savedStr).includes(job._id);
@@ -136,13 +138,15 @@ const JobCard = ({ job, onViewDetails, onApply }) => {
           </div>
         </div>
         
-        <button 
-          onClick={handleBookmarkToggle}
-          className={`card-bookmark-btn ${isBookmarked ? 'active' : ''}`}
-          title={isBookmarked ? "Saved" : "Save Job"}
-        >
-          <Bookmark size={18} fill={isBookmarked ? "var(--accent)" : "none"} stroke={isBookmarked ? "var(--accent)" : "currentColor"} />
-        </button>
+        {(!user || user.role !== 'recruiter') && (
+          <button 
+            onClick={handleBookmarkToggle}
+            className={`card-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+            title={isBookmarked ? "Saved" : "Save Job"}
+          >
+            <Bookmark size={18} fill={isBookmarked ? "var(--accent)" : "none"} stroke={isBookmarked ? "var(--accent)" : "currentColor"} />
+          </button>
+        )}
       </div>
 
       {/* Metadata Indicators */}
