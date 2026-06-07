@@ -9,6 +9,7 @@ import JobDetails from './pages/JobDetails';
 import RecruiterDashboard from './pages/RecruiterDashboard';
 import MyApplications from './pages/MyApplications';
 import ApplyModal from './components/ApplyModal';
+import Modal from './components/Modal';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Profile from './pages/Profile';
@@ -37,6 +38,7 @@ const AppContent = () => {
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [jobToApply, setJobToApply] = useState(null);
   const [appliedJobIds, setAppliedJobIds] = useState([]);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
   // Fetch candidate's applied jobs on mount / login
   useEffect(() => {
@@ -113,6 +115,11 @@ const AppContent = () => {
   };
 
   const handleLogout = () => {
+    setLogoutModalOpen(true);
+  };
+
+  const executeLogout = () => {
+    setLogoutModalOpen(false);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     sessionStorage.removeItem('token');
@@ -260,7 +267,7 @@ const AppContent = () => {
           />
         );
       case 'my-applications':
-        return <MyApplications onPageChange={handlePageChange} onApply={handleApplyTrigger} />;
+        return <MyApplications onPageChange={handlePageChange} onApply={handleApplyTrigger} onLogout={handleLogout} />;
       case 'profile':
         return <Profile user={user} onPageChange={handlePageChange} />;
       case 'login':
@@ -330,6 +337,36 @@ const AppContent = () => {
         job={jobToApply}
         onApplySuccess={handleApplySuccess}
       />
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        isOpen={logoutModalOpen}
+        onClose={() => setLogoutModalOpen(false)}
+        title="Confirm Logout"
+        footer={
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', width: '100%' }}>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setLogoutModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button 
+              className="btn btn-danger" 
+              onClick={executeLogout}
+              style={{ backgroundColor: 'var(--error)', color: '#ffffff' }}
+            >
+              Yes, Logout
+            </button>
+          </div>
+        }
+      >
+        <div style={{ padding: '0.5rem 0' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
+            Are you sure you want to log out of your account? You will need to log back in to access your dashboard, applications, and saved jobs.
+          </p>
+        </div>
+      </Modal>
 
       <Footer onPageChange={handlePageChange} />
     </div>

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import CustomSelect from '../components/CustomSelect';
 
-const MyApplications = ({ onPageChange, onApply }) => {
+const MyApplications = ({ onPageChange, onApply, onLogout }) => {
   // Retrieve authenticated candidate user details
   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
 
@@ -90,11 +90,15 @@ const MyApplications = ({ onPageChange, onApply }) => {
   }, [activeTab, fetchUserApplications, fetchSavedJobs]);
 
   const handleLogoutClick = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('user');
-    window.location.href = '/';
+    if (onLogout) {
+      onLogout();
+    } else {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      window.location.href = '/';
+    }
   };
 
   const handlePlaceholderNav = (name) => {
