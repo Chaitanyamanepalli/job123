@@ -41,6 +41,11 @@ const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation
   const [searchTerm, setSearchTerm] = useState(globalSearch || '');
   const [locationTerm, setLocationTerm] = useState(globalLocation || '');
 
+  // Advanced Sidebar Filter states
+  const [companyFilter, setCompanyFilter] = useState('');
+  const [minSalary, setMinSalary] = useState('');
+  const [maxSalary, setMaxSalary] = useState('');
+
   // Checklist Filter arrays
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [selectedExps, setSelectedExps] = useState([]);
@@ -90,7 +95,10 @@ const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation
         experience: expQuery,
         sort: sortBy,
         page: currentPage,
-        limit: 5 // 5 jobs per page
+        limit: 5, // 5 jobs per page
+        minSalary,
+        maxSalary,
+        company: companyFilter
       });
 
       setJobs(res.jobs || []);
@@ -101,7 +109,7 @@ const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, locationTerm, selectedTypes, selectedExps, sortBy, currentPage]);
+  }, [searchTerm, locationTerm, selectedTypes, selectedExps, sortBy, currentPage, minSalary, maxSalary, companyFilter]);
 
   // Fetch jobs whenever search terms or filter parameters change
   useEffect(() => {
@@ -186,6 +194,9 @@ const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation
     setGlobalLocation('');
     setSelectedTypes([]);
     setSelectedExps([]);
+    setCompanyFilter('');
+    setMinSalary('');
+    setMaxSalary('');
     setSortBy('Latest');
     setCurrentPage(1);
   };
@@ -264,6 +275,7 @@ const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation
             options={[
               { value: 'Latest', label: 'Latest' },
               { value: 'Oldest', label: 'Oldest' },
+              { value: 'Alphabetical', label: 'Alphabetical (A-Z)' },
               { value: 'Salary High To Low', label: 'Salary: High to Low' },
               { value: 'Salary Low To High', label: 'Salary: Low to High' }
             ]}
@@ -277,6 +289,87 @@ const Jobs = ({ globalSearch, setGlobalSearch, globalLocation, setGlobalLocation
         {/* Left Column Sidebar Filters */}
         <aside className="jobs-filter-sidebar">
           <div className="filter-title-header">Filter by</div>
+
+          {/* Company Search Input */}
+          <div className="filter-block-section">
+            <div className="filter-block-title">Company Name</div>
+            <input
+              type="text"
+              placeholder="Search Company..."
+              value={companyFilter}
+              onChange={(e) => {
+                setCompanyFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                width: '100%',
+                padding: '0.6rem 0.85rem',
+                fontSize: '0.85rem',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-primary)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                marginTop: '0.5rem'
+              }}
+            />
+          </div>
+
+          {/* Salary Range Inputs */}
+          <div className="filter-block-section">
+            <div className="filter-block-title">Salary Range (Annual INR)</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <span style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>₹</span>
+                <input
+                  type="number"
+                  placeholder="Min Salary"
+                  value={minSalary}
+                  onChange={(e) => {
+                    setMinSalary(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.85rem 0.6rem 1.75rem',
+                    fontSize: '0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <span style={{ position: 'absolute', left: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>₹</span>
+                <input
+                  type="number"
+                  placeholder="Max Salary"
+                  value={maxSalary}
+                  onChange={(e) => {
+                    setMaxSalary(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.85rem 0.6rem 1.75rem',
+                    fontSize: '0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+              {minSalary && maxSalary && Number(minSalary) >= Number(maxSalary) && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--error)' }}>
+                  Max salary must exceed min salary
+                </span>
+              )}
+            </div>
+          </div>
           
           {/* Job Type checklist */}
           <div className="filter-block-section">

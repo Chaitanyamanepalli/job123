@@ -16,8 +16,9 @@
 // - MyApplications.jsx (renders bookmarked/saved jobs tab list)
 // ====================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, Bookmark, Calendar } from 'lucide-react';
+import { api } from '../services/api';
 
 // Purpose:
 // Helper sub-component that outputs high-quality company branding logos.
@@ -30,6 +31,17 @@ import { MapPin, Clock, Bookmark, Calendar } from 'lucide-react';
 // Output:
 // Returns SVG brand shapes or a generic colorful letter icon wrapper.
 export const CompanyLogo = ({ company = '', logo = '', size = 32 }) => {
+  // If logo is a custom uploaded image path or url
+  if (logo && (logo.startsWith('http') || logo.startsWith('/uploads'))) {
+    const backendBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+    const fullUrl = logo.startsWith('http') ? logo : `${backendBase}${logo}`;
+    return (
+      <div style={{ width: size, height: size, borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)', backgroundColor: '#ffffff', flexShrink: 0 }}>
+        <img src={fullUrl} alt={company} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+      </div>
+    );
+  }
+
   const normalizedLogo = (logo || company).toLowerCase();
 
   // Draw custom Google SVG
@@ -121,15 +133,27 @@ export const CompanyLogo = ({ company = '', logo = '', size = 32 }) => {
 //
 // Output:
 // Returns the clickable JobCard item.
-const JobCard = ({ job, onViewDetails, onApply }) => {
+const JobCard = ({ job, onViewDetails, onApply, isSavedPage = false, onRemoveBookmark }) => {
   // Read active session user profile context details
   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
 
   // Verify if this job is bookmarked/saved by reading client local storage
-  const [isBookmarked, setIsBookmarked] = useState(() => {
-    const savedStr = localStorage.getItem('savedJobIds') || '[]';
-    return JSON.parse(savedStr).includes(job._id);
-  });
+  const [isBookmarked, setIsBookmarked] = useState(isSavedPage);
+
+  // Sync bookmark status on load
+  useEffect(() => {
+    if (user && user.role === 'candidate' && !isSavedPage) {
+      api.getSavedJobs().then(res => {
+        const savedList = res.data || [];
+        const isSaved = savedList.some(j => j._id === job._id);
+        setIsBookmarked(isSaved);
+        
+        // Sync local storage ids too
+        const ids = savedList.map(j => j._id);
+        localStorage.setItem('savedJobIds', JSON.stringify(ids));
+      }).catch(err => console.error('Error fetching bookmark sync:', err.message));
+    }
+  }, [job._id]);
 
   // Convert annual salary number to Indian Rupee (INR) currency format
   const formatSalary = (amount) => {
@@ -153,20 +177,36 @@ const JobCard = ({ job, onViewDetails, onApply }) => {
   };
 
   // Handles adding or removing a job ID from the user's local saved jobs list
-  const handleBookmarkToggle = (e) => {
+  const handleBookmarkToggle = async (e) => {
     e.stopPropagation(); // Avoid triggering card details redirection click
-    const savedStr = localStorage.getItem('savedJobIds') || '[]';
-    let saved = JSON.parse(savedStr);
-    let nextState = false;
-    if (saved.includes(job._id)) {
-      saved = saved.filter(id => id !== job._id);
-      nextState = false;
-    } else {
-      saved.push(job._id);
-      nextState = true;
+    if (!user) {
+      alert('Please login to bookmark jobs.');
+      return;
     }
-    localStorage.setItem('savedJobIds', JSON.stringify(saved));
-    setIsBookmarked(nextState);
+
+    if (isSavedPage && onRemoveBookmark) {
+      onRemoveBookmark(e);
+      return;
+    }
+
+    try {
+      if (isBookmarked) {
+        await api.unsaveJob(job._id);
+        setIsBookmarked(false);
+        const saved = JSON.parse(localStorage.getItem('savedJobIds') || '[]');
+        localStorage.setItem('savedJobIds', JSON.stringify(saved.filter(id => id !== job._id)));
+      } else {
+        await api.saveJob(job._id);
+        setIsBookmarked(true);
+        const saved = JSON.parse(localStorage.getItem('savedJobIds') || '[]');
+        if (!saved.includes(job._id)) {
+          saved.push(job._id);
+          localStorage.setItem('savedJobIds', JSON.stringify(saved));
+        }
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to update job bookmark.');
+    }
   };
 
   const cardClick = () => {

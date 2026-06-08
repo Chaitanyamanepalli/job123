@@ -18,12 +18,13 @@ const express = require('express');
 const router = express.Router();
 const { signup, login, getMe, forgotPassword, resetPassword } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
+const { validateSignup, validateLogin } = require('../middleware/validatorMiddleware');
 
 // Public signup route
-router.post('/signup', signup);
+router.post('/signup', validateSignup, signup);
 
 // Public login route
-router.post('/login', login);
+router.post('/login', validateLogin, login);
 
 // Private session details route (requires valid JWT token middleware)
 router.get('/me', protect, getMe);

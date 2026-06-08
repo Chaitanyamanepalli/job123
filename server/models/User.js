@@ -40,15 +40,42 @@ const UserSchema = new mongoose.Schema(
       required: [true, 'Password is required'],
       minlength: [6, 'Password must be at least 6 characters long'],
     },
-    // Role selection (either candidate or recruiter)
     role: {
       type: String,
       enum: {
-        values: ['candidate', 'recruiter'],
-        message: '{VALUE} is not a valid role. Must be: candidate or recruiter',
+        values: ['candidate', 'recruiter', 'admin'],
+        message: '{VALUE} is not a valid role. Must be: candidate, recruiter or admin',
       },
       required: [true, 'Role selection is required'],
     },
+    // Candidate profile fields
+    skills: {
+      type: [String],
+      default: [],
+    },
+    experience: {
+      type: String,
+      default: '',
+    },
+    location: {
+      type: String,
+      default: '',
+    },
+    education: {
+      type: String,
+      default: '',
+    },
+    resumeUrl: {
+      type: String,
+      default: '',
+    },
+    // Saved jobs bookmarked by candidate
+    savedJobs: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Job',
+      },
+    ],
     // Token sent to the user's email if they forget their password
     resetPasswordToken: String,
     // The expiry time of the reset token (valid for 15 minutes)

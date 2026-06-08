@@ -17,6 +17,7 @@
 
 const Job = require('../models/Job');
 const Application = require('../models/Application');
+const User = require('../models/User');
 
 // Purpose:
 // Retrieves a list of job postings matching search queries, filters, and paginations.
@@ -31,7 +32,7 @@ const Application = require('../models/Application');
 // Used on Home page, Jobs search page, and Recruiter Dashboard list.
 const getJobs = async (req, res, next) => {
   try {
-    const { search, location, jobType, experience, sort, page = 1, limit = 6, myJobs } = req.query;
+    const { search, location, jobType, experience, sort, page = 1, limit = 6, myJobs, minSalary, maxSalary, company } = req.query;
 
     const query = {};
 
@@ -63,6 +64,22 @@ const getJobs = async (req, res, next) => {
     // Explicit Location Filter
     if (location) {
       query.location = { $regex: location, $options: 'i' };
+    }
+
+    // Explicit Company Filter
+    if (company) {
+      query.company = { $regex: company, $options: 'i' };
+    }
+
+    // Filter by Salary range
+    if (minSalary || maxSalary) {
+      query.salary = {};
+      if (minSalary) {
+        query.salary.$gte = Number(minSalary);
+      }
+      if (maxSalary) {
+        query.salary.$lte = Number(maxSalary);
+      }
     }
 
     // Filter by Job Type (supports comma-separated list of types)
@@ -294,10 +311,86 @@ const deleteJob = async (req, res, next) => {
   }
 };
 
+// @desc    Save a job to bookmarks
+// @route   POST /api/jobs/:id/save
+// @access  Private (Candidate only)
+const saveJob = async (req, res, next) => {
+  try {
+    const jobId = req.params.id;
+    const user = await User.findById(req.user._id);
+
+    if (user.savedJobs.includes(jobId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Job already saved',
+      });
+    }
+
+    user.savedJobs.push(jobId);
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Job saved successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Remove a saved job from bookmarks
+// @route   DELETE /api/jobs/:id/save
+// @access  Private (Candidate only)
+const unsaveJob = async (req, res, next) => {
+  try {
+    const jobId = req.params.id;
+    const user = await User.findById(req.user._id);
+
+    user.savedJobs = user.savedJobs.filter(id => id.toString() !== jobId.toString());
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Job removed from saved list successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Upload Company Logo
+// @route   POST /api/jobs/upload-logo
+// @access  Private (Recruiter only)
+const uploadJobLogo = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload an image file (JPG/PNG)',
+      });
+    }
+
+    const logoUrl = `/uploads/logos/${req.file.filename}`;
+
+    res.status(200).json({
+      success: true,
+      message: 'Logo uploaded successfully',
+      data: {
+        logoUrl,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getJobs,
   getJobById,
   createJob,
   updateJob,
   deleteJob,
+  saveJob,
+  unsaveJob,
+  uploadJobLogo,
 };

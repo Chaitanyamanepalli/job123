@@ -73,7 +73,7 @@ const signup = async (req, res, next) => {
       });
     }
 
-    const validRoles = ['candidate', 'recruiter'];
+    const validRoles = ['candidate', 'recruiter', 'admin'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({
         success: false,

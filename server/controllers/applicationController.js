@@ -17,6 +17,9 @@
 
 const Application = require('../models/Application');
 const Job = require('../models/Job');
+const User = require('../models/User');
+const sendEmail = require('../utils/sendEmail');
+const Notification = require('../models/Notification');
 
 // Purpose:
 // Creates a new job application in the database for a candidate.
@@ -62,6 +65,78 @@ const applyJob = async (req, res, next) => {
       candidateId: req.user._id,
     });
 
+    // Notify Recruiter via Email
+    const recruiter = await User.findById(job.postedBy);
+    if (recruiter && recruiter.email) {
+      try {
+        const appDate = new Date().toLocaleDateString();
+        await sendEmail({
+          to: recruiter.email,
+          subject: `New Job Application for ${job.title}`,
+          text: `Hello ${recruiter.fullName},\n\nYou have received a new job application for the post of ${job.title}.\n\nCandidate Details:\nName: ${application.name}\nEmail: ${application.email}\nPhone: ${application.phone}\nApplication Date: ${appDate}\n\nPlease log in to your dashboard to review this application.\n\nRegards,\nJobPortal Pro Team`,
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 8px;">
+              <h2 style="color: #6366f1; border-bottom: 1px solid #eee; padding-bottom: 10px;">New Job Application Received</h2>
+              <p>Hello <strong>${recruiter.fullName}</strong>,</p>
+              <p>You have received a new job application for your posting: <strong>${job.title}</strong>.</p>
+              <h3 style="color: #4f46e5; margin-top: 20px;">Candidate Details</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; width: 30%;">Name:</td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${application.name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Email:</td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><a href="mailto:${application.email}">${application.email}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Phone:</td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${application.phone}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Applied On:</td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${appDate}</td>
+                </tr>
+              </table>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/recruiter/dashboard" style="background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Applications</a>
+              </div>
+              <p style="font-size: 0.9em; color: #666; border-top: 1px solid #eee; padding-top: 15px; margin-top: 20px;">
+                Regards,<br />
+                <strong>JobPortal Pro Team</strong>
+              </p>
+            </div>
+          `
+        });
+      } catch (err) {
+        console.error('Failed to send email alert to recruiter:', err.message);
+      }
+    }
+
+    // Save Notification to Database for Recruiter
+    try {
+      const notification = await Notification.create({
+        recipient: job.postedBy,
+        sender: req.user._id,
+        type: 'new_application',
+        title: 'New Job Application',
+        message: `${application.name} applied for your job: ${job.title}`,
+      });
+
+      // Send real-time event via Socket.IO
+      const { sendEventToUser } = require('../config/socket');
+      sendEventToUser(job.postedBy, 'notification', {
+        _id: notification._id,
+        type: 'new_application',
+        title: notification.title,
+        message: notification.message,
+        isRead: false,
+        createdAt: notification.createdAt,
+      });
+    } catch (err) {
+      console.error('Failed to save or send socket notification to recruiter:', err.message);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Application submitted successfully',
@@ -104,7 +179,7 @@ const getApplicationsByJob = async (req, res, next) => {
       });
     }
 
-    const applications = await Application.find({ jobId }).sort({ appliedAt: -1 });
+    const applications = await Application.find({ jobId }).populate('candidateId', 'resumeUrl skills experience education').sort({ appliedAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -196,6 +271,30 @@ const updateApplicationStatus = async (req, res, next) => {
         success: false,
         message: 'Application not found',
       });
+    }
+
+    // Save Notification to Database for Candidate
+    try {
+      const notification = await Notification.create({
+        recipient: application.candidateId,
+        sender: req.user._id,
+        type: 'status_change',
+        title: 'Application Status Updated',
+        message: `Your application status for "${job.title}" has been updated to "${status}"`,
+      });
+
+      // Send real-time event via Socket.IO
+      const { sendEventToUser } = require('../config/socket');
+      sendEventToUser(application.candidateId, 'notification', {
+        _id: notification._id,
+        type: 'status_change',
+        title: notification.title,
+        message: notification.message,
+        isRead: false,
+        createdAt: notification.createdAt,
+      });
+    } catch (err) {
+      console.error('Failed to save or send socket notification to candidate:', err.message);
     }
 
     res.status(200).json({

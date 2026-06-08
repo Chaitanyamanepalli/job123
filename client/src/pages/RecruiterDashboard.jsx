@@ -36,7 +36,9 @@ import {
   PhoneCall, 
   UserPlus,
   ArrowRight,
-  TrendingUp
+  TrendingUp,
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 
 // Purpose:
@@ -49,6 +51,7 @@ import {
 // Output:
 // Renders the specific Recruiter sub-page (dashboard stats, edit form, create form, or all applications).
 const RecruiterDashboard = ({ currentPath, onPageChange }) => {
+  const backendBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -75,7 +78,9 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     maxSalary: '',
     jobType: 'Full Time',
     description: '',
+    logo: '',
   });
+  const [logoUploading, setLogoUploading] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   const [formSubmitLoading, setFormSubmitLoading] = useState(false);
 
@@ -189,6 +194,7 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
             maxSalary,
             jobType: res.job.jobType,
             description: res.job.description,
+            logo: res.job.logo || '',
           });
         } catch {
           setError('Failed to fetch job details for editing.');
@@ -210,8 +216,34 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
       maxSalary: '',
       jobType: 'Full Time',
       description: '',
+      logo: '',
     });
     setFormErrors({});
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('File size exceeds the 2MB limit.');
+      return;
+    }
+
+    const data = new FormData();
+    data.append('logo', file);
+
+    try {
+      setLogoUploading(true);
+      const res = await api.uploadLogo(data);
+      if (res.success && res.data?.logoUrl) {
+        setFormData(prev => ({ ...prev, logo: res.data.logoUrl }));
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to upload logo.');
+    } finally {
+      setLogoUploading(false);
+    }
   };
 
   // Purpose:
@@ -297,6 +329,7 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
         location: formData.location,
         jobType: formData.jobType,
         description: formData.description,
+        logo: formData.logo || '',
       };
 
       if (formData.salaryType === 'Fixed') {
@@ -337,6 +370,7 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
         location: formData.location,
         jobType: formData.jobType,
         description: formData.description,
+        logo: formData.logo || '',
       };
 
       if (formData.salaryType === 'Fixed') {
@@ -468,6 +502,66 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                 placeholder="e.g. Stripe"
               />
               {formErrors.company && <span className="form-error-msg">{formErrors.company}</span>}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Company Logo (Optional)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                {formData.logo ? (
+                  <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
+                    <img 
+                      src={`${backendBase}${formData.logo}`} 
+                      alt="Company Logo Preview" 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, logo: '' }))}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        background: 'rgba(239, 68, 68, 0.9)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '0 0 0 8px',
+                        padding: '0.2rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Remove Logo"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ width: '64px', height: '64px', borderRadius: '10px', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                    Logo
+                  </div>
+                )}
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id="logo-upload-input"
+                    onChange={handleLogoUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <label
+                    htmlFor="logo-upload-input"
+                    className="btn btn-secondary"
+                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                  >
+                    {logoUploading ? 'Uploading...' : 'Upload Logo'}
+                  </label>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    PNG, JPG or JPEG up to 2MB.
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="form-group">
@@ -691,6 +785,66 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                 className={`form-input ${formErrors.company ? 'input-error' : ''}`} 
               />
               {formErrors.company && <span className="form-error-msg">{formErrors.company}</span>}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Company Logo (Optional)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                {formData.logo ? (
+                  <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
+                    <img 
+                      src={`${backendBase}${formData.logo}`} 
+                      alt="Company Logo Preview" 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, logo: '' }))}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        background: 'rgba(239, 68, 68, 0.9)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '0 0 0 8px',
+                        padding: '0.2rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Remove Logo"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ width: '64px', height: '64px', borderRadius: '10px', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                    Logo
+                  </div>
+                )}
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id="logo-edit-upload-input"
+                    onChange={handleLogoUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <label
+                    htmlFor="logo-edit-upload-input"
+                    className="btn btn-secondary"
+                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                  >
+                    {logoUploading ? 'Uploading...' : 'Upload Logo'}
+                  </label>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    PNG, JPG or JPEG up to 2MB.
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="form-group">
@@ -927,31 +1081,74 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-color)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Status:</span>
-                    <select
-                      value={app.status || 'Under Review'}
-                      onChange={(e) => handleStatusChange(app._id, e.target.value)}
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        fontSize: '0.8rem',
-                        borderRadius: '6px',
-                        border: '1px solid var(--border-color)',
-                        backgroundColor: 'var(--bg-primary)',
-                        color: 'var(--text-primary)',
-                        cursor: 'pointer',
-                        outline: 'none'
-                      }}
-                    >
-                      <option value="Under Review">Under Review</option>
-                      <option value="Shortlisted">Shortlisted</option>
-                      <option value="Rejected">Rejected</option>
-                    </select>
+                {app.candidateId && (
+                  <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {app.candidateId.skills && app.candidateId.skills.length > 0 && (
+                      <div><strong>Skills:</strong> {app.candidateId.skills.join(', ')}</div>
+                    )}
+                    {app.candidateId.experience && (
+                      <div><strong>Experience:</strong> {app.candidateId.experience}</div>
+                    )}
+                    {app.candidateId.education && (
+                      <div><strong>Education:</strong> {app.candidateId.education}</div>
+                    )}
+                    {app.candidateId.resumeUrl ? (
+                      <div style={{ marginTop: '0.25rem' }}>
+                        <a 
+                          href={`${backendBase}${app.candidateId.resumeUrl}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-hover)', fontWeight: 600, fontSize: '0.8rem', textDecoration: 'none' }}
+                        >
+                          <FileText size={12} />
+                          <span>View Resume</span>
+                        </a>
+                      </div>
+                    ) : (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>No resume uploaded</div>
+                    )}
                   </div>
-                  <span className={`status-tracking-badge ${app.status ? app.status.toLowerCase().replace(/\s+/g, '-') : 'under-review'}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
-                    {app.status || 'Under Review'}
-                  </span>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Status:</span>
+                      <select
+                        value={app.status || 'Under Review'}
+                        onChange={(e) => handleStatusChange(app._id, e.target.value)}
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.8rem',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--text-primary)',
+                          cursor: 'pointer',
+                          outline: 'none'
+                        }}
+                      >
+                        <option value="Under Review">Under Review</option>
+                        <option value="Shortlisted">Shortlisted</option>
+                        <option value="Rejected">Rejected</option>
+                      </select>
+                    </div>
+                    <span className={`status-tracking-badge ${app.status ? app.status.toLowerCase().replace(/\s+/g, '-') : 'under-review'}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
+                      {app.status || 'Under Review'}
+                    </span>
+                  </div>
+                  
+                  {app.candidateId && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ width: '100%', fontSize: '0.8rem', padding: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      onClick={() => onPageChange('chat', { recipientId: app.candidateId._id })}
+                    >
+                      <MessageSquare size={14} />
+                      <span>Message Candidate</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -1251,31 +1448,77 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Evaluate Status:</span>
-                    <select
-                      value={app.status || 'Under Review'}
-                      onChange={(e) => handleStatusChange(app._id, e.target.value)}
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        fontSize: '0.85rem',
-                        borderRadius: '6px',
-                        border: '1px solid var(--border-color)',
-                        backgroundColor: 'var(--bg-secondary)',
-                        color: 'var(--text-primary)',
-                        cursor: 'pointer',
-                        outline: 'none'
+                {app.candidateId && (
+                  <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {app.candidateId.skills && app.candidateId.skills.length > 0 && (
+                      <div><strong>Skills:</strong> {app.candidateId.skills.join(', ')}</div>
+                    )}
+                    {app.candidateId.experience && (
+                      <div><strong>Experience:</strong> {app.candidateId.experience}</div>
+                    )}
+                    {app.candidateId.education && (
+                      <div><strong>Education:</strong> {app.candidateId.education}</div>
+                    )}
+                    {app.candidateId.resumeUrl ? (
+                      <div style={{ marginTop: '0.25rem' }}>
+                        <a 
+                          href={`${backendBase}${app.candidateId.resumeUrl}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-hover)', fontWeight: 600, fontSize: '0.8rem', textDecoration: 'none' }}
+                        >
+                          <FileText size={12} />
+                          <span>View Resume</span>
+                        </a>
+                      </div>
+                    ) : (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>No resume uploaded</div>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Evaluate Status:</span>
+                      <select
+                        value={app.status || 'Under Review'}
+                        onChange={(e) => handleStatusChange(app._id, e.target.value)}
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.85rem',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-secondary)',
+                          color: 'var(--text-primary)',
+                          cursor: 'pointer',
+                          outline: 'none'
+                        }}
+                      >
+                        <option value="Under Review">Under Review</option>
+                        <option value="Shortlisted">Shortlisted</option>
+                        <option value="Rejected">Rejected</option>
+                      </select>
+                    </div>
+                    <span className={`status-tracking-badge ${app.status ? app.status.toLowerCase().replace(/\s+/g, '-') : 'under-review'}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
+                      {app.status || 'Under Review'}
+                    </span>
+                  </div>
+                  
+                  {app.candidateId && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ width: '100%', fontSize: '0.8rem', padding: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      onClick={() => {
+                        setIsAppsModalOpen(false);
+                        onPageChange('chat', { recipientId: app.candidateId._id });
                       }}
                     >
-                      <option value="Under Review">Under Review</option>
-                      <option value="Shortlisted">Shortlisted</option>
-                      <option value="Rejected">Rejected</option>
-                    </select>
-                  </div>
-                  <span className={`status-tracking-badge ${app.status ? app.status.toLowerCase().replace(/\s+/g, '-') : 'under-review'}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
-                    {app.status || 'Under Review'}
-                  </span>
+                      <MessageSquare size={14} />
+                      <span>Message Candidate</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

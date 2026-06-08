@@ -16,6 +16,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { Sun, Moon, Menu, X, User, LogOut, Shield } from 'lucide-react';
+import NotificationCenter from './NotificationCenter';
 
 const LogoIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: 'var(--accent)' }}>
@@ -36,7 +37,7 @@ const LogoIcon = () => (
 //
 // Output:
 // Returns the header Navbar JSX structure.
-const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
+const Navbar = ({ currentPage, onPageChange, user, onLogout, socket }) => {
   const { theme, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -89,17 +90,20 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
           {/* CANDIDATE VIEW NAVIGATION */}
           {user && user.role === 'candidate' && (
             <>
-              <a href="/" className={`nav-link-item ${currentPage === 'home' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/'); }}>
-                Home
+              <a href="/candidate/dashboard" className={`nav-link-item ${currentPage === 'candidate-dashboard' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/candidate/dashboard'); }}>
+                Dashboard
               </a>
               <a href="/jobs" className={`nav-link-item ${currentPage === 'jobs' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/jobs'); }}>
                 Jobs
               </a>
-              <a href="/about" className={`nav-link-item ${currentPage === 'about' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/about'); }}>
-                About
+              <a href="/saved-jobs" className={`nav-link-item ${currentPage === 'saved-jobs' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/saved-jobs'); }}>
+                Saved Jobs
               </a>
               <a href="/my-applications" className={`nav-link-item ${currentPage === 'my-applications' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/my-applications'); }}>
-                My Applications
+                Applications
+              </a>
+              <a href="/chat" className={`nav-link-item ${currentPage === 'chat' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/chat'); }}>
+                Chat
               </a>
               <a href="/profile" className={`nav-link-item ${currentPage === 'profile' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/profile'); }}>
                 Profile
@@ -122,8 +126,8 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
               <a href="/recruiter/applications" className={`nav-link-item ${currentPage === 'recruiter-dashboard' && window.location.pathname === '/recruiter/applications' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/recruiter/applications'); }}>
                 Applications
               </a>
-              <a href="/about" className={`nav-link-item ${currentPage === 'about' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/about'); }}>
-                About
+              <a href="/chat" className={`nav-link-item ${currentPage === 'chat' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/chat'); }}>
+                Chat
               </a>
               <a href="/profile" className={`nav-link-item ${currentPage === 'profile' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/profile'); }}>
                 Profile
@@ -132,6 +136,29 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
                 <LogOut size={16} /> Logout
               </button>
             </>
+          )}
+
+          {/* ADMIN VIEW NAVIGATION */}
+          {user && user.role === 'admin' && (
+            <>
+              <a href="/admin/dashboard" className={`nav-link-item ${currentPage === 'admin-dashboard' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/admin/dashboard'); }}>
+                Admin Dashboard
+              </a>
+              <a href="/chat" className={`nav-link-item ${currentPage === 'chat' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/chat'); }}>
+                Chat
+              </a>
+              <a href="/profile" className={`nav-link-item ${currentPage === 'profile' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/profile'); }}>
+                Profile
+              </a>
+              <button onClick={onLogout} className="nav-link-item" style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <LogOut size={16} /> Logout
+              </button>
+            </>
+          )}
+
+          {/* Notification Center widget */}
+          {user && (
+            <NotificationCenter socket={socket} user={user} />
           )}
 
           {/* Theme Mode Toggle Button */}
@@ -202,19 +229,22 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
         {/* Candidate Mobile Menu */}
         {user && user.role === 'candidate' && (
           <>
-            <a href="/" className={`nav-link-mobile ${currentPage === 'home' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/'); }}>
-              Home
+            <a href="/candidate/dashboard" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/candidate/dashboard'); }}>
+              Dashboard
             </a>
-            <a href="/jobs" className={`nav-link-mobile ${currentPage === 'jobs' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/jobs'); }}>
+            <a href="/jobs" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/jobs'); }}>
               Jobs
             </a>
-            <a href="/about" className={`nav-link-mobile ${currentPage === 'about' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/about'); }}>
-              About
+            <a href="/saved-jobs" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/saved-jobs'); }}>
+              Saved Jobs
             </a>
-            <a href="/my-applications" className={`nav-link-mobile ${currentPage === 'my-applications' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/my-applications'); }}>
-              My Applications
+            <a href="/my-applications" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/my-applications'); }}>
+              Applications
             </a>
-            <a href="/profile" className={`nav-link-mobile ${currentPage === 'profile' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/profile'); }}>
+            <a href="/chat" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/chat'); }}>
+              Chat
+            </a>
+            <a href="/profile" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/profile'); }}>
               Profile
             </a>
             <button onClick={onLogout} className="nav-link-mobile" style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', padding: '0.75rem 0' }}>
@@ -235,8 +265,26 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout }) => {
             <a href="/recruiter/applications" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/recruiter/applications'); }}>
               Applications
             </a>
-            <a href="/about" className={`nav-link-mobile ${currentPage === 'about' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/about'); }}>
-              About
+            <a href="/chat" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/chat'); }}>
+              Chat
+            </a>
+            <a href="/profile" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/profile'); }}>
+              Profile
+            </a>
+            <button onClick={onLogout} className="nav-link-mobile" style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', padding: '0.75rem 0' }}>
+              <LogOut size={16} /> Logout
+            </button>
+          </>
+        )}
+
+        {/* Admin Mobile Menu */}
+        {user && user.role === 'admin' && (
+          <>
+            <a href="/admin/dashboard" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/admin/dashboard'); }}>
+              Admin Dashboard
+            </a>
+            <a href="/chat" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/chat'); }}>
+              Chat
             </a>
             <a href="/profile" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/profile'); }}>
               Profile

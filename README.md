@@ -50,10 +50,33 @@ JobPortal Pro is a professional, full-stack recruitment platform that provides a
 
 ---
 
-## Key Features
+## Key Features & Upgrades
 
-1. **Discover & Category Filtering**: Browse popular categories (e.g. Developer, Design, Marketing) with count details, or explore handpicked Featured Job Openings on the Home Page.
-2. **Real-time Search & Multi-Filters**: Filter jobs on the Jobs Page by type (Full Time, Part Time, Contract, Internship, Remote), type search terms in real-time, or sort listings by Salary (High-Low / Low-High), Date Posted (Latest / Oldest), or Alphabetical.
-3. **Application Tracking**: A dedicated "My Applications" page caches your candidate email in local storage to automatically retrieve, search, and filter your application history.
-4. **Recruiter Console**: An interactive dashboard listing all postings. Recruiters can view submitted applications per job (modal list containing name, email, phone, date), edit postings (pre-filled fields), delete jobs (soft cascade deletion), or publish new roles.
-5. **Aesthetics & Theme**: Dark/Light modes inspired by "BlackBucks" theme style, featuring smooth transitions and local storage restoration. Fully mobile-responsive stacking layout.
+### 1. Advanced Recruiter Operations & Logos
+- **Company Logos**: Recruiters can upload custom branding images (JPG, PNG) up to 2MB. Logos are stored in static assets directories and loaded dynamically in job cards.
+- **Candidate Evaluations**: Recruiter dash displays candidate skills, experience level, and education. Includes a secure link to open/download parsed resumes in PDF.
+- **Chat Actions**: Direct "Message Candidate" trigger from any application row, automatically opening the chat interface.
+
+### 2. Jobs Explorer Sidebar
+- **Advanced Filters**: Sidebar query inputs for *Company Name* keyword matching and *Min/Max Salary Range* boundaries.
+- **Dynamic Sorting**: Instant re-ordering by *Salary: Low to High*, *Salary: High to Low*, *Latest*, *Oldest*, and *Alphabetical (A-Z)*.
+
+### 3. Messaging & Real-Time Socket.IO
+- **1-to-1 Chat Room**: Immediate text delivery and online status indicators (Active now vs Offline).
+- **Socket Notifications**: Instant header notifications and popup toasts for:
+  - Recruiters: When a candidate submits a new application.
+  - Candidates: When their status is updated (Shortlisted/Rejected).
+  - Messaging: New chat text alerts.
+
+### 4. Candidate Profile & AI Resume Parser
+- **PDF Resume Upload**: Drag-and-drop resume uploader on profile page. Uses server-side `pdf-parse` combined with smart regex heuristic rules to automatically parse and pre-populate skills, education, and experience.
+- **Strength completion indicator**: Track and preview profile completeness score.
+
+### 5. Administration Control Center
+- **System Stats**: Display system-wide user counts (recruiters, candidates), active postings, and total applications.
+- **Moderation Tools**: Delete spam user accounts, remove abusive job posts, or cancel invalid job application records.
+
+### 6. Production Security Layer
+- **NoSQL Protection**: Middleware sanitizes incoming query/body objects, stripping keys containing `$` to block injection vectors.
+- **Rate limiting**: API request constraints configured to prevent DDoS or spam.
+- **Helmet Headers & Validation**: Secure CORS policies and schema checks (express-validator) validate body formatting before controller execution.

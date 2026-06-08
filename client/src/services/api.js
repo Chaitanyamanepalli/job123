@@ -13,7 +13,7 @@
 // - Pages and components (Home, Jobs, JobDetails, Login, Signup, RecruiterDashboard) to fetch/mutate data.
 // ====================================================
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Purpose:
 // Generates request headers dynamically, inserting authorization Bearer token if found.
@@ -94,7 +94,7 @@ export const api = {
   // ====================================================
 
   // Fetches lists of job postings with filters
-  async getJobs({ search = '', location = '', jobType = 'All', experience = 'All', sort = 'Latest', page = 1, limit = 6, myJobs = false } = {}) {
+  async getJobs({ search = '', location = '', jobType = 'All', experience = 'All', sort = 'Latest', page = 1, limit = 6, myJobs = false, minSalary = '', maxSalary = '', company = '' } = {}) {
     const query = new URLSearchParams({
       search,
       location,
@@ -106,6 +106,15 @@ export const api = {
     });
     if (myJobs) {
       query.append('myJobs', 'true');
+    }
+    if (minSalary) {
+      query.append('minSalary', String(minSalary));
+    }
+    if (maxSalary) {
+      query.append('maxSalary', String(maxSalary));
+    }
+    if (company) {
+      query.append('company', company);
     }
     const response = await fetch(`${API_BASE}/jobs?${query.toString()}`, {
       headers: getHeaders(null), // No Content-Type needed for GET requests
@@ -204,6 +213,164 @@ export const api = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
+    });
+    return handleResponse(response);
+  },
+
+  // ====================================================
+  // DASHBOARD STATISTICS ENDPOINTS
+  // ====================================================
+  async getRecruiterStats() {
+    const response = await fetch(`${API_BASE}/dashboard/recruiter`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async getCandidateStats() {
+    const response = await fetch(`${API_BASE}/dashboard/candidate`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async getAdminStats() {
+    const response = await fetch(`${API_BASE}/dashboard/admin`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // ====================================================
+  // SAVED JOBS ENDPOINTS
+  // ====================================================
+  async getSavedJobs() {
+    const response = await fetch(`${API_BASE}/users/saved-jobs`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async saveJob(id) {
+    const response = await fetch(`${API_BASE}/jobs/${id}/save`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async unsaveJob(id) {
+    const response = await fetch(`${API_BASE}/jobs/${id}/save`, {
+      method: 'DELETE',
+      headers: getHeaders(null),
+    });
+    return handleResponse(response);
+  },
+
+  // ====================================================
+  // CANDIDATE PROFILE & UPLOADS ENDPOINTS
+  // ====================================================
+  async updateProfile(profileData) {
+    const response = await fetch(`${API_BASE}/users/profile`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(profileData),
+    });
+    return handleResponse(response);
+  },
+
+  async uploadResume(formData) {
+    const response = await fetch(`${API_BASE}/users/resume`, {
+      method: 'POST',
+      headers: getHeaders(null), // Let browser set Content-Type with boundary for multipart
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  async uploadLogo(formData) {
+    const response = await fetch(`${API_BASE}/jobs/upload-logo`, {
+      method: 'POST',
+      headers: getHeaders(null), // Let browser set Content-Type with boundary for multipart
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  // ====================================================
+  // CHAT ENDPOINTS
+  // ====================================================
+  async getConversations() {
+    const response = await fetch(`${API_BASE}/chat/conversations`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async getMessages(conversationId) {
+    const response = await fetch(`${API_BASE}/chat/messages/${conversationId}`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async sendMessage(recipientId, text) {
+    const response = await fetch(`${API_BASE}/chat/messages`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ recipientId, text }),
+    });
+    return handleResponse(response);
+  },
+
+  // ====================================================
+  // ADMIN PANEL ENDPOINTS
+  // ====================================================
+  async getAdminUsers() {
+    const response = await fetch(`${API_BASE}/admin/users`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async deleteAdminUser(id) {
+    const response = await fetch(`${API_BASE}/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(null),
+    });
+    return handleResponse(response);
+  },
+
+  async deleteAdminJob(id) {
+    const response = await fetch(`${API_BASE}/admin/jobs/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(null),
+    });
+    return handleResponse(response);
+  },
+
+  async deleteAdminApplication(id) {
+    const response = await fetch(`${API_BASE}/admin/applications/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(null),
+    });
+    return handleResponse(response);
+  },
+
+  // ====================================================
+  // NOTIFICATIONS ENDPOINTS
+  // ====================================================
+  async getNotifications() {
+    const response = await fetch(`${API_BASE}/notifications`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async markNotificationsRead() {
+    const response = await fetch(`${API_BASE}/notifications/read`, {
+      method: 'PUT',
+      headers: getHeaders(),
     });
     return handleResponse(response);
   },

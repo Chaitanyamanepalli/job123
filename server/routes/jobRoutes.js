@@ -22,7 +22,11 @@ const {
   createJob,
   updateJob,
   deleteJob,
+  saveJob,
+  unsaveJob,
+  uploadJobLogo,
 } = require('../controllers/jobController');
+const { uploadLogo } = require('../middleware/uploadMiddleware');
 const { validateJob } = require('../validators/jobValidator');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/roleMiddleware');
@@ -42,5 +46,13 @@ router.route('/:id')
   .put(protect, authorizeRoles('recruiter'), validateJob, updateJob)
   // Only logged-in recruiters who own the job can delete it
   .delete(protect, authorizeRoles('recruiter'), deleteJob);
+
+// Bookmark/Save job routes
+router.route('/:id/save')
+  .post(protect, authorizeRoles('candidate'), saveJob)
+  .delete(protect, authorizeRoles('candidate'), unsaveJob);
+
+// Logo upload route (Recruiter only)
+router.post('/upload-logo', protect, authorizeRoles('recruiter'), uploadLogo, uploadJobLogo);
 
 module.exports = router;

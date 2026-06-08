@@ -35,6 +35,11 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import About from './pages/About';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { io } from 'socket.io-client';
+import CandidateDashboard from './pages/CandidateDashboard';
+import SavedJobs from './pages/SavedJobs';
+import Chat from './pages/Chat';
+import AdminDashboard from './pages/AdminDashboard';
 
 // Purpose:
 // Orchestrates visual routing views, authentication updates, and alert notifications.
@@ -67,7 +72,54 @@ const AppContent = () => {
   const [appliedJobIds, setAppliedJobIds] = useState([]);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
-  // Fetch list of jobs the candidate user has already submitted CVs for
+  // Socket.IO client instance
+  const [socket, setSocket] = useState(null);
+
+  // Initialize and clean up Socket.IO connection based on user session
+  useEffect(() => {
+    if (user) {
+      const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+      const newSocket = io(socketUrl);
+      setSocket(newSocket);
+
+      // Register active user session
+      newSocket.emit('join', user._id);
+
+      return () => {
+        newSocket.disconnect();
+      };
+    } else {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+    }
+  }, [user]);
+
+  // Alert banner state
+  const [alert, setAlert] = useState(null);
+
+  // Trigger floating alert banner
+  const triggerAlert = (message, type = 'success') => {
+    setAlert({ message, type });
+    setTimeout(() => {
+      setAlert(null);
+    }, 5000);
+  };
+
+  // Listen for real-time notification alerts
+  useEffect(() => {
+    if (socket) {
+      socket.on('notification', (data) => {
+        // Automatically pop a toast message
+        triggerAlert(data.message, 'success');
+      });
+
+      return () => {
+        socket.off('notification');
+      };
+    }
+  }, [socket]);
   useEffect(() => {
     const fetchAppliedJobs = async () => {
       if (user && user.role === 'candidate') {
@@ -86,9 +138,6 @@ const AppContent = () => {
     };
     fetchAppliedJobs();
   }, [user]);
-
-  // Floating Toast alert visual state
-  const [alert, setAlert] = useState(null);
 
   // Purpose:
   // Updates the browser history stack and sets current route state path.
@@ -109,20 +158,6 @@ const AppContent = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
-
-  // Purpose:
-  // Displays a success or error banner at the top of the viewport.
-  //
-  // Input:
-  // - message (string): Alert text.
-  // - type (string): "success" or "error".
-  const triggerAlert = (message, type = 'success') => {
-    setAlert({ message, type });
-    // Automatically close banner after 5 seconds
-    setTimeout(() => {
-      setAlert(null);
-    }, 5000);
-  };
 
   // Purpose:
   // Opens the application modal. Prompts guests to log in first.
@@ -158,9 +193,11 @@ const AppContent = () => {
     setToken(authToken);
     triggerAlert(`Logged in successfully as ${authUser.fullName}!`);
     if (authUser.role === 'candidate') {
-      navigate('/jobs');
-    } else {
+      navigate('/candidate/dashboard');
+    } else if (authUser.role === 'recruiter') {
       navigate('/recruiter/dashboard');
+    } else if (authUser.role === 'admin') {
+      navigate('/admin/dashboard');
     }
   };
 
@@ -195,7 +232,6 @@ const AppContent = () => {
     if (target === 'home' || target === '/') {
       navigate('/');
     } else if (target === 'jobs' || target === '/jobs') {
-      // Clear filters on fresh transitions, unless parameter overrides
       if (params.keepFilters !== true) {
         setGlobalSearch('');
         setGlobalLocation('');
@@ -205,6 +241,18 @@ const AppContent = () => {
       navigate(`/jobs/${params.id}`);
     } else if (target === 'dashboard' || target === '/recruiter/dashboard') {
       navigate('/recruiter/dashboard');
+    } else if (target === 'candidate-dashboard' || target === '/candidate/dashboard') {
+      navigate('/candidate/dashboard');
+    } else if (target === 'saved-jobs' || target === '/saved-jobs') {
+      navigate('/saved-jobs');
+    } else if (target === 'chat' || target === '/chat') {
+      if (params.recipientId) {
+        navigate(`/chat?recipientId=${params.recipientId}`);
+      } else {
+        navigate('/chat');
+      }
+    } else if (target === 'admin-dashboard' || target === '/admin/dashboard') {
+      navigate('/admin/dashboard');
     } else if (target === 'my-applications' || target === '/my-applications') {
       navigate('/my-applications');
     } else if (target === 'profile' || target === '/profile') {
@@ -238,6 +286,18 @@ const AppContent = () => {
     if (path === '/signup') return { name: 'signup' };
     if (path === '/forgot-password') return { name: 'forgot-password' };
     if (path === '/about') return { name: 'about' };
+    if (path === '/candidate/dashboard') return { name: 'candidate-dashboard' };
+    if (path === '/saved-jobs') return { name: 'saved-jobs' };
+    if (path.startsWith('/chat')) {
+      const queryIndex = path.indexOf('?');
+      let recipientId = null;
+      if (queryIndex !== -1) {
+        const searchParams = new URLSearchParams(path.substring(queryIndex));
+        recipientId = searchParams.get('recipientId');
+      }
+      return { name: 'chat', params: { recipientId } };
+    }
+    if (path === '/admin/dashboard') return { name: 'admin-dashboard' };
 
     // Resolve Reset Password token path pattern using dynamic regex matching
     const resetPasswordMatch = path.match(/^\/reset-password\/([a-zA-Z0-9_-]+)$/);
@@ -267,7 +327,8 @@ const AppContent = () => {
     const route = parseRoute();
     const publicPaths = ['home', 'jobs', 'job-details', 'login', 'signup', 'forgot-password', 'reset-password', 'about'];
     const recruiterPaths = ['recruiter-dashboard'];
-    const candidatePaths = ['my-applications'];
+    const candidatePaths = ['my-applications', 'candidate-dashboard', 'saved-jobs'];
+    const adminPaths = ['admin-dashboard'];
 
     if (!user) {
       // Guest checks
@@ -276,22 +337,35 @@ const AppContent = () => {
         navigate('/login');
       }
     } else {
+      // Admin checks - can access public pages, profile, admin-dashboard, and chat
+      if (user.role === 'admin') {
+        if (!publicPaths.includes(route.name) && route.name !== 'admin-dashboard' && route.name !== 'profile' && route.name !== 'chat') {
+          triggerAlert('Redirected to Admin Dashboard', 'success');
+          navigate('/admin/dashboard');
+        }
+      }
       // Candidate checks
-      if (user.role === 'candidate' && recruiterPaths.includes(route.name)) {
-        triggerAlert('Unauthorized Access', 'error');
-        navigate('/jobs');
+      if (user.role === 'candidate') {
+        if (recruiterPaths.includes(route.name) || adminPaths.includes(route.name)) {
+          triggerAlert('Unauthorized Access', 'error');
+          navigate('/jobs');
+        }
       }
       // Recruiter checks
-      if (user.role === 'recruiter' && candidatePaths.includes(route.name)) {
-        triggerAlert('Unauthorized Access: Redirected to Recruiter Dashboard.', 'error');
-        navigate('/recruiter/dashboard');
+      if (user.role === 'recruiter') {
+        if (candidatePaths.includes(route.name) || adminPaths.includes(route.name)) {
+          triggerAlert('Unauthorized Access: Redirected to Recruiter Dashboard.', 'error');
+          navigate('/recruiter/dashboard');
+        }
       }
       // Prevent authenticated users visiting login/signup
       if (route.name === 'login' || route.name === 'signup') {
         if (user.role === 'candidate') {
-          navigate('/jobs');
-        } else {
+          navigate('/candidate/dashboard');
+        } else if (user.role === 'recruiter') {
           navigate('/recruiter/dashboard');
+        } else if (user.role === 'admin') {
+          navigate('/admin/dashboard');
         }
       }
     }
@@ -336,10 +410,18 @@ const AppContent = () => {
             onPageChange={handlePageChange}
           />
         );
+      case 'candidate-dashboard':
+        return <CandidateDashboard onPageChange={handlePageChange} user={user} />;
+      case 'saved-jobs':
+        return <SavedJobs onPageChange={handlePageChange} onApply={handleApplyTrigger} />;
+      case 'chat':
+        return <Chat onPageChange={handlePageChange} user={user} socket={socket} pageParams={currentRoute.params || {}} />;
+      case 'admin-dashboard':
+        return <AdminDashboard onPageChange={handlePageChange} user={user} />;
       case 'my-applications':
         return <MyApplications onPageChange={handlePageChange} onApply={handleApplyTrigger} onLogout={handleLogout} />;
       case 'profile':
-        return <Profile user={user} onPageChange={handlePageChange} />;
+        return <Profile user={user} onPageChange={handlePageChange} socket={socket} />;
       case 'login':
         return <Login onPageChange={handlePageChange} onAuthSuccess={handleAuthSuccess} />;
       case 'signup':
@@ -369,6 +451,7 @@ const AppContent = () => {
         onPageChange={handlePageChange} 
         user={user}
         onLogout={handleLogout}
+        socket={socket}
       />
       
       {/* Success/Error Toast notification banner */}
