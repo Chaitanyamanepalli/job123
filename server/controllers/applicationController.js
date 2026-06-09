@@ -123,6 +123,50 @@ const applyJob = async (req, res, next) => {
       }
     }
 
+    // Notify Candidate via Email
+    if (application.email) {
+      try {
+        const appDate = new Date().toLocaleDateString();
+        await sendEmail({
+          to: application.email,
+          subject: `Application Confirmed: ${job.title} at ${job.company}`,
+          text: `Hello ${application.name},\n\nThis is to confirm that you have successfully applied for the position of ${job.title} at ${job.company}.\n\nApplication Details:\nJob Title: ${job.title}\nCompany: ${job.company}\nApplication Date: ${appDate}\n\nYou can view and track your applications in the Candidate Dashboard.\n\nRegards,\nJobPortal Pro Team`,
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 8px;">
+              <h2 style="color: #10b981; border-bottom: 1px solid #eee; padding-bottom: 10px;">Application Confirmed!</h2>
+              <p>Hello <strong>${application.name}</strong>,</p>
+              <p>Thank you for applying. This email confirms that we have successfully received your job application for the post of <strong>${job.title}</strong> at <strong>${job.company}</strong>.</p>
+              <h3 style="color: #059669; margin-top: 20px;">Application Summary</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; width: 30%;">Job Title:</td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${job.title}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Company:</td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${job.company}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Applied On:</td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${appDate}</td>
+                </tr>
+              </table>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Track Application</a>
+              </div>
+              <p style="font-size: 0.9em; color: #666; border-top: 1px solid #eee; padding-top: 15px; margin-top: 20px;">
+                We have notified the recruiter. You will receive updates via email or notifications as the recruiter reviews your application.<br /><br />
+                Regards,<br />
+                <strong>JobPortal Pro Team</strong>
+              </p>
+            </div>
+          `
+        });
+      } catch (err) {
+        console.error('Failed to send email confirmation to candidate:', err.message);
+      }
+    }
+
     // Save Notification to Database for Recruiter
     try {
       const notification = await Notification.create({
