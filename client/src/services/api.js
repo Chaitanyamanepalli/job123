@@ -399,4 +399,12 @@ export const api = {
     });
     return handleResponse(response);
   },
+
+  async clearNotifications() {
+    const response = await fetch(`${API_BASE}/notifications`, {
+      method: 'DELETE',
+      headers: getHeaders(null),
+    });
+    return handleResponse(response);
+  },
 };

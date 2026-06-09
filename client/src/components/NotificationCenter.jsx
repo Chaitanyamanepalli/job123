@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
-import { Bell, CheckSquare, Trash2, Calendar, FileText, Settings, UserCheck } from 'lucide-react';
+import { Bell, CheckSquare, Trash2, Calendar, FileText, UserCheck } from 'lucide-react';
 
 const NotificationCenter = ({ socket, user }) => {
   const [notifications, setNotifications] = useState([]);
@@ -53,6 +53,15 @@ const NotificationCenter = ({ socket, user }) => {
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     } catch (err) {
       console.error('Error marking notifications read:', err.message);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await api.clearNotifications();
+      setNotifications([]);
+    } catch (err) {
+      console.error('Error clearing notifications:', err.message);
     }
   };
 
@@ -121,24 +130,44 @@ const NotificationCenter = ({ socket, user }) => {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
             <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700 }}>Notifications</h4>
-            {unreadCount > 0 && (
-              <button 
-                onClick={handleMarkAsRead}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--accent)',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.25rem'
-                }}
-              >
-                <CheckSquare size={12} /> Mark all read
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {unreadCount > 0 && (
+                <button 
+                  onClick={handleMarkAsRead}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--accent)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
+                  }}
+                >
+                  <CheckSquare size={12} /> Mark all read
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button 
+                  onClick={handleClearAll}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--error)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
+                  }}
+                >
+                  <Trash2 size={12} /> Clear all
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
