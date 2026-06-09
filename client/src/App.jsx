@@ -192,13 +192,7 @@ const AppContent = () => {
     setUser(authUser);
     setToken(authToken);
     triggerAlert(`Logged in successfully as ${authUser.fullName}!`);
-    if (authUser.role === 'candidate') {
-      navigate('/candidate/dashboard');
-    } else if (authUser.role === 'recruiter') {
-      navigate('/recruiter/dashboard');
-    } else if (authUser.role === 'admin') {
-      navigate('/admin/dashboard');
-    }
+    navigate('/');
   };
 
   // Triggers the Logout Confirmation Overlay Popup modal
@@ -360,13 +354,7 @@ const AppContent = () => {
       }
       // Prevent authenticated users visiting login/signup
       if (route.name === 'login' || route.name === 'signup') {
-        if (user.role === 'candidate') {
-          navigate('/candidate/dashboard');
-        } else if (user.role === 'recruiter') {
-          navigate('/recruiter/dashboard');
-        } else if (user.role === 'admin') {
-          navigate('/admin/dashboard');
-        }
+        navigate('/');
       }
     }
   }, [currentPath, user]);
