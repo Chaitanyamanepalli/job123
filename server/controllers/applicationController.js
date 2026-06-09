@@ -152,7 +152,7 @@ const applyJob = async (req, res, next) => {
                 </tr>
               </table>
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Track Application</a>
+                <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/my-applications" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Track Application</a>
               </div>
               <p style="font-size: 0.9em; color: #666; border-top: 1px solid #eee; padding-top: 15px; margin-top: 20px;">
                 We have notified the recruiter. You will receive updates via email or notifications as the recruiter reviews your application.<br /><br />
