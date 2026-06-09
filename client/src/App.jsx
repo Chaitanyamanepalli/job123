@@ -421,7 +421,7 @@ const AppContent = () => {
       case 'my-applications':
         return <MyApplications onPageChange={handlePageChange} onApply={handleApplyTrigger} onLogout={handleLogout} />;
       case 'profile':
-        return <Profile user={user} onPageChange={handlePageChange} socket={socket} />;
+        return <Profile user={user} setUser={setUser} onPageChange={handlePageChange} socket={socket} />;
       case 'login':
         return <Login onPageChange={handlePageChange} onAuthSuccess={handleAuthSuccess} />;
       case 'signup':

@@ -69,6 +69,12 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    parsedResumeData: {
+      name: { type: String, default: '' },
+      skills: { type: [String], default: [] },
+      experience: { type: String, default: '' },
+      education: { type: String, default: '' },
+    },
     // Saved jobs bookmarked by candidate
     savedJobs: [
       {

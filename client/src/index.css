@@ -1760,12 +1760,18 @@ button, input, select, textarea {
   font-weight: 700;
 }
 
+.status-tracking-badge.pending,
 .status-tracking-badge.under-review {
   background-color: rgba(245, 158, 11, 0.12);
   color: #d97706;
 }
 
 .status-tracking-badge.shortlisted {
+  background-color: rgba(14, 165, 233, 0.12);
+  color: #0ea5e9;
+}
+
+.status-tracking-badge.accepted {
   background-color: rgba(16, 185, 129, 0.12);
   color: #059669;
 }

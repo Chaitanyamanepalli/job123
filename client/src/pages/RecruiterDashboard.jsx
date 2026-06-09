@@ -30,7 +30,7 @@ import {
   Briefcase, 
   AlertTriangle, 
   MapPin, 
-  DollarSign, 
+  Sparkles, 
   Calendar, 
   Mail, 
   PhoneCall, 
@@ -1083,30 +1083,51 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
 
                 {app.candidateId && (
                   <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    {app.candidateId.skills && app.candidateId.skills.length > 0 && (
-                      <div><strong>Skills:</strong> {app.candidateId.skills.join(', ')}</div>
+                    <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem', borderBottom: '1px dashed var(--border-color)', paddingBottom: '0.35rem' }}>
+                      <Sparkles size={12} />
+                      <span>Extracted ATS Resume Details:</span>
+                    </div>
+                    <div>&bull; <strong>Name:</strong> {app.candidateId.parsedResumeData?.name || app.name || app.candidateId.fullName || 'Not specified'}</div>
+                    <div>&bull; <strong>Education:</strong> {app.candidateId.education || app.candidateId.parsedResumeData?.education || 'Not specified'}</div>
+                    <div>&bull; <strong>Experience:</strong> {app.candidateId.experience || app.candidateId.parsedResumeData?.experience || 'Not specified'}</div>
+                    <div>&bull; <strong>Skills:</strong> {app.candidateId.skills && app.candidateId.skills.length > 0 
+                      ? app.candidateId.skills.join(', ') 
+                      : (app.candidateId.parsedResumeData?.skills && app.candidateId.parsedResumeData.skills.length > 0 ? app.candidateId.parsedResumeData.skills.join(', ') : 'Not specified')}
+                    </div>
+                    {app.candidateId.location && (
+                      <div>&bull; <strong>Location:</strong> {app.candidateId.location}</div>
                     )}
-                    {app.candidateId.experience && (
-                      <div><strong>Experience:</strong> {app.candidateId.experience}</div>
-                    )}
-                    {app.candidateId.education && (
-                      <div><strong>Education:</strong> {app.candidateId.education}</div>
-                    )}
-                    {app.candidateId.resumeUrl ? (
-                      <div style={{ marginTop: '0.25rem' }}>
-                        <a 
-                          href={`${backendBase}${app.candidateId.resumeUrl}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-hover)', fontWeight: 600, fontSize: '0.8rem', textDecoration: 'none' }}
-                        >
-                          <FileText size={12} />
-                          <span>View Resume</span>
-                        </a>
-                      </div>
-                    ) : (
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>No resume uploaded</div>
-                    )}
+                    
+                    {/* View & Download Resume Section */}
+                    {(() => {
+                      const resumeToUse = app.resumeUrl || app.candidateId.resumeUrl;
+                      return resumeToUse ? (
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                          <a 
+                            href={`${backendBase}${resumeToUse}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary"
+                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                          >
+                            <FileText size={12} />
+                            <span>View Resume</span>
+                          </a>
+                          <a 
+                            href={`${backendBase}${resumeToUse}`} 
+                            download
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary"
+                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                          >
+                            <span>Download Resume</span>
+                          </a>
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.25rem' }}>No resume uploaded</div>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -1450,30 +1471,51 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
 
                 {app.candidateId && (
                   <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    {app.candidateId.skills && app.candidateId.skills.length > 0 && (
-                      <div><strong>Skills:</strong> {app.candidateId.skills.join(', ')}</div>
+                    <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem', borderBottom: '1px dashed var(--border-color)', paddingBottom: '0.35rem' }}>
+                      <Sparkles size={12} />
+                      <span>Extracted ATS Resume Details:</span>
+                    </div>
+                    <div>&bull; <strong>Name:</strong> {app.candidateId.parsedResumeData?.name || app.name || app.candidateId.fullName || 'Not specified'}</div>
+                    <div>&bull; <strong>Education:</strong> {app.candidateId.education || app.candidateId.parsedResumeData?.education || 'Not specified'}</div>
+                    <div>&bull; <strong>Experience:</strong> {app.candidateId.experience || app.candidateId.parsedResumeData?.experience || 'Not specified'}</div>
+                    <div>&bull; <strong>Skills:</strong> {app.candidateId.skills && app.candidateId.skills.length > 0 
+                      ? app.candidateId.skills.join(', ') 
+                      : (app.candidateId.parsedResumeData?.skills && app.candidateId.parsedResumeData.skills.length > 0 ? app.candidateId.parsedResumeData.skills.join(', ') : 'Not specified')}
+                    </div>
+                    {app.candidateId.location && (
+                      <div>&bull; <strong>Location:</strong> {app.candidateId.location}</div>
                     )}
-                    {app.candidateId.experience && (
-                      <div><strong>Experience:</strong> {app.candidateId.experience}</div>
-                    )}
-                    {app.candidateId.education && (
-                      <div><strong>Education:</strong> {app.candidateId.education}</div>
-                    )}
-                    {app.candidateId.resumeUrl ? (
-                      <div style={{ marginTop: '0.25rem' }}>
-                        <a 
-                          href={`${backendBase}${app.candidateId.resumeUrl}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-hover)', fontWeight: 600, fontSize: '0.8rem', textDecoration: 'none' }}
-                        >
-                          <FileText size={12} />
-                          <span>View Resume</span>
-                        </a>
-                      </div>
-                    ) : (
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>No resume uploaded</div>
-                    )}
+                    
+                    {/* View & Download Resume Section */}
+                    {(() => {
+                      const resumeToUse = app.resumeUrl || app.candidateId.resumeUrl;
+                      return resumeToUse ? (
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                          <a 
+                            href={`${backendBase}${resumeToUse}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary"
+                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                          >
+                            <FileText size={12} />
+                            <span>View Resume</span>
+                          </a>
+                          <a 
+                            href={`${backendBase}${resumeToUse}`} 
+                            download
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary"
+                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                          >
+                            <span>Download Resume</span>
+                          </a>
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.25rem' }}>No resume uploaded</div>
+                      );
+                    })()}
                   </div>
                 )}
 

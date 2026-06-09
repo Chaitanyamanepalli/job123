@@ -190,7 +190,7 @@ export const api = {
   // Updates review status of candidate application (Recruiter-only)
   async updateApplicationStatus(applicationId, status) {
     const response = await fetch(`${API_BASE}/applications/${applicationId}/status`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: getHeaders(),
       body: JSON.stringify({ status }),
     });
@@ -270,8 +270,15 @@ export const api = {
   // ====================================================
   // CANDIDATE PROFILE & UPLOADS ENDPOINTS
   // ====================================================
+  async getProfile() {
+    const response = await fetch(`${API_BASE}/profile`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
   async updateProfile(profileData) {
-    const response = await fetch(`${API_BASE}/users/profile`, {
+    const response = await fetch(`${API_BASE}/profile/update`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(profileData),
@@ -280,7 +287,7 @@ export const api = {
   },
 
   async uploadResume(formData) {
-    const response = await fetch(`${API_BASE}/users/resume`, {
+    const response = await fetch(`${API_BASE}/profile/upload-resume`, {
       method: 'POST',
       headers: getHeaders(null), // Let browser set Content-Type with boundary for multipart
       body: formData,
@@ -319,6 +326,24 @@ export const api = {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ recipientId, text }),
+    });
+    return handleResponse(response);
+  },
+
+  async createConversation(applicationId) {
+    const response = await fetch(`${API_BASE}/chat/create`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ applicationId }),
+    });
+    return handleResponse(response);
+  },
+
+  async sendChatMessage(conversationId, text) {
+    const response = await fetch(`${API_BASE}/chat/send`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ conversationId, text }),
     });
     return handleResponse(response);
   },

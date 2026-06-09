@@ -60,6 +60,14 @@ const ApplicationSchema = new mongoose.Schema({
     enum: ['Under Review', 'Shortlisted', 'Rejected'],
     default: 'Under Review',
   },
+  resumeUrl: {
+    type: String,
+  },
+  applicationStatus: {
+    type: String,
+    enum: ['Pending', 'Shortlisted', 'Accepted', 'Rejected'],
+    default: 'Pending',
+  },
 });
 
 module.exports = mongoose.model('Application', ApplicationSchema);

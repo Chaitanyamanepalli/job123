@@ -29,9 +29,13 @@ import {
   Bookmark, 
   User, 
   LogOut,
-  MoreVertical
+  MoreVertical,
+  Eye,
+  MessageSquare,
+  CheckCircle2
 } from 'lucide-react';
 import CustomSelect from '../components/CustomSelect';
+import Modal from '../components/Modal';
 
 // Purpose:
 // Displays candidate's job hunting statistics, bookmarks, and logs.
@@ -60,6 +64,11 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('All');
   const [sortBy, setSortBy] = useState('Most Recent');
+
+  // Application status detail modal state
+  const [selectedAppForStatus, setSelectedAppForStatus] = useState(null);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [chatLoadingMap, setChatLoadingMap] = useState({});
 
   // Purpose:
   // Fetches all job applications submitted by this candidate from backend.
@@ -166,6 +175,31 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
     }
   };
 
+  const handleViewStatusClick = (app) => {
+    setSelectedAppForStatus(app);
+    setIsStatusModalOpen(true);
+  };
+
+  const handleChatRecruiter = async (app) => {
+    if (!app || !app.jobId || !app.jobId.postedBy) {
+      alert("Recruiter details are not available for this job.");
+      return;
+    }
+    
+    const recruiterId = app.jobId.postedBy;
+    
+    try {
+      setChatLoadingMap(prev => ({ ...prev, [app._id]: true }));
+      // Automatically create or retrieve conversation
+      await api.createConversation(app._id);
+      onPageChange('chat', { recipientId: recruiterId });
+    } catch (err) {
+      alert(err.message || 'Failed to open chat conversation.');
+    } finally {
+      setChatLoadingMap(prev => ({ ...prev, [app._id]: false }));
+    }
+  };
+
   // Purpose:
   // Processes client-side search query, type selection, and sorting.
   //
@@ -207,9 +241,13 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
 
   // Stats Counters
   const totalCount = applications.length;
-  const underReviewCount = applications.filter(a => a.status === 'Under Review').length;
-  const shortlistedCount = applications.filter(a => a.status === 'Shortlisted').length;
-  const rejectedCount = applications.filter(a => a.status === 'Rejected').length;
+  const pendingCount = applications.filter(a => {
+    const s = a.applicationStatus || a.status || 'Pending';
+    return s === 'Pending' || s === 'Under Review';
+  }).length;
+  const shortlistedCount = applications.filter(a => (a.applicationStatus || a.status) === 'Shortlisted').length;
+  const acceptedCount = applications.filter(a => (a.applicationStatus || a.status) === 'Accepted').length;
+  const rejectedCount = applications.filter(a => (a.applicationStatus || a.status) === 'Rejected').length;
 
   return (
     <div className="candidate-dashboard-page-wrapper">
@@ -272,18 +310,22 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
               <h1 className="dashboard-panel-title">My Applications</h1>
 
               {/* Live Stats Widgets */}
-              <div className="dashboard-stats-grid">
+              <div className="dashboard-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                 <div className="stat-widget-card">
-                  <span className="stat-widget-label">Total Applications Submitted</span>
+                  <span className="stat-widget-label">Total Applications</span>
                   <span className="stat-widget-number">{totalCount}</span>
                 </div>
                 <div className="stat-widget-card">
-                  <span className="stat-widget-label">Under Review</span>
-                  <span className="stat-widget-number">{underReviewCount}</span>
+                  <span className="stat-widget-label">Pending / Review</span>
+                  <span className="stat-widget-number text-warning" style={{ color: '#d97706' }}>{pendingCount}</span>
                 </div>
                 <div className="stat-widget-card">
                   <span className="stat-widget-label">Shortlisted</span>
-                  <span className="stat-widget-number text-success">{shortlistedCount}</span>
+                  <span className="stat-widget-number text-info" style={{ color: '#0ea5e9' }}>{shortlistedCount}</span>
+                </div>
+                <div className="stat-widget-card">
+                  <span className="stat-widget-label">Accepted</span>
+                  <span className="stat-widget-number text-success">{acceptedCount}</span>
                 </div>
                 <div className="stat-widget-card">
                   <span className="stat-widget-label">Rejected</span>
@@ -388,10 +430,33 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
                           </div>
 
                           {/* Status badge and actions right */}
-                          <div className="app-log-status-actions-col">
-                            <span className={`status-tracking-badge ${app.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                              {app.status}
+                          <div className="app-log-status-actions-col" style={{ display: 'flex', gap: '0.50rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span className={`status-tracking-badge ${(app.applicationStatus || app.status || 'Pending').toLowerCase().replace(/\s+/g, '-')}`}>
+                              {app.applicationStatus || app.status || 'Pending'}
                             </span>
+                            
+                            <button 
+                              type="button" 
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '0.4rem 0.65rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', height: '34px' }}
+                              onClick={() => handleViewStatusClick(app)}
+                              title="View Application Status"
+                            >
+                              <Eye size={14} />
+                              <span>View Status</span>
+                            </button>
+
+                            <button 
+                              type="button" 
+                              className="btn btn-primary btn-sm"
+                              style={{ padding: '0.4rem 0.65rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', height: '34px' }}
+                              onClick={() => handleChatRecruiter(app)}
+                              disabled={chatLoadingMap[app._id]}
+                              title="Chat Recruiter"
+                            >
+                              <MessageSquare size={14} />
+                              <span>{chatLoadingMap[app._id] ? 'Connecting...' : 'Chat Recruiter'}</span>
+                            </button>
                             
                             <button 
                               type="button" 
@@ -456,6 +521,200 @@ const MyApplications = ({ onPageChange, onApply, onLogout }) => {
 
         </main>
       </div>
+
+      {/* Application Status Detail Modal */}
+      {selectedAppForStatus && (
+        <Modal
+          isOpen={isStatusModalOpen}
+          onClose={() => {
+            setIsStatusModalOpen(false);
+            setSelectedAppForStatus(null);
+          }}
+          title="Application Process Tracker"
+          footer={
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+              {selectedAppForStatus.resumeUrl ? (
+                <a 
+                  href={`${api.defaults?.baseURL || 'http://localhost:5000'}${selectedAppForStatus.resumeUrl}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.85rem', textDecoration: 'none' }}
+                >
+                  View Submitted Resume
+                </a>
+              ) : (
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>No resume attached</span>
+              )}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => {
+                    setIsStatusModalOpen(false);
+                    setSelectedAppForStatus(null);
+                  }}
+                >
+                  Close
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => {
+                    const app = selectedAppForStatus;
+                    setIsStatusModalOpen(false);
+                    setSelectedAppForStatus(null);
+                    handleChatRecruiter(app);
+                  }}
+                >
+                  Chat Recruiter
+                </button>
+              </div>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '0.5rem 0' }}>
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.25rem' }}>
+                {selectedAppForStatus.jobId?.title || 'Job Title'}
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>{selectedAppForStatus.jobId?.company || 'Company'}</span>
+                <span>&bull;</span>
+                <span>{selectedAppForStatus.jobId?.location || 'Location'}</span>
+              </p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                Applied on: {new Date(selectedAppForStatus.appliedAt).toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </p>
+            </div>
+
+            {/* Stepper tracker */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'relative', paddingLeft: '1.5rem' }}>
+              {/* Vertical timeline line */}
+              <div style={{
+                position: 'absolute',
+                left: '6px',
+                top: '10px',
+                bottom: '10px',
+                width: '2px',
+                backgroundColor: 'var(--border-color)',
+                zIndex: 1
+              }}></div>
+
+              {/* Step 1: Applied */}
+              <div style={{ display: 'flex', gap: '1rem', position: 'relative', zIndex: 2 }}>
+                <div style={{
+                  width: '14px',
+                  height: '14px',
+                  borderRadius: '50%',
+                  backgroundColor: '#10b981',
+                  border: '3px solid var(--bg-primary)',
+                  marginLeft: '-21px',
+                  boxShadow: '0 0 0 2px #10b981'
+                }}></div>
+                <div>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    Application Submitted
+                    <CheckCircle2 size={14} style={{ color: '#10b981' }} />
+                  </h4>
+                  <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                    Your application and resume were successfully sent to the recruiter.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2: Under Review */}
+              {(() => {
+                const currentStatus = selectedAppForStatus.applicationStatus || selectedAppForStatus.status || 'Pending';
+                const isStepCompleted = ['Shortlisted', 'Accepted', 'Rejected'].includes(currentStatus);
+                const isStepActive = ['Pending', 'Under Review'].includes(currentStatus);
+                
+                return (
+                  <div style={{ display: 'flex', gap: '1rem', position: 'relative', zIndex: 2 }}>
+                    <div style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      backgroundColor: isStepCompleted ? '#10b981' : isStepActive ? '#f59e0b' : 'var(--border-color)',
+                      border: '3px solid var(--bg-primary)',
+                      marginLeft: '-21px',
+                      boxShadow: `0 0 0 2px ${isStepCompleted ? '#10b981' : isStepActive ? '#f59e0b' : 'transparent'}`
+                    }}></div>
+                    <div>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: isStepActive ? '#d97706' : 'inherit' }}>
+                        Recruiter Review
+                      </h4>
+                      <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                        {isStepCompleted 
+                          ? 'The recruiter completed review of your application.' 
+                          : isStepActive 
+                          ? 'The recruiter is currently reviewing your profile and skills.' 
+                          : 'Pending initial application screening.'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Step 3: Final Selection */}
+              {(() => {
+                const currentStatus = selectedAppForStatus.applicationStatus || selectedAppForStatus.status || 'Pending';
+                const isAccepted = currentStatus === 'Accepted';
+                const isRejected = currentStatus === 'Rejected';
+                const isShortlisted = currentStatus === 'Shortlisted';
+                const isDecided = isAccepted || isRejected || isShortlisted;
+                
+                let title = 'Selection Decision';
+                let desc = 'Final recruitment status decision from the hiring team.';
+                let color = 'var(--text-secondary)';
+                let dotColor = 'var(--border-color)';
+                
+                if (isAccepted) {
+                  title = 'Application Accepted';
+                  desc = 'Fantastic news! The hiring manager has accepted your application. They will contact you shortly.';
+                  color = '#10b981';
+                  dotColor = '#10b981';
+                } else if (isRejected) {
+                  title = 'Application Rejected';
+                  desc = 'The recruiter decided to proceed with other candidates. Keep searching and applying!';
+                  color = '#ef4444';
+                  dotColor = '#ef4444';
+                } else if (isShortlisted) {
+                  title = 'Application Shortlisted';
+                  desc = 'Great job! You have been shortlisted for this position. The recruiter will initiate chat soon!';
+                  color = '#0ea5e9';
+                  dotColor = '#0ea5e9';
+                }
+
+                return (
+                  <div style={{ display: 'flex', gap: '1rem', position: 'relative', zIndex: 2 }}>
+                    <div style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      backgroundColor: dotColor,
+                      border: '3px solid var(--bg-primary)',
+                      marginLeft: '-21px',
+                      boxShadow: `0 0 0 2px ${isDecided ? dotColor : 'transparent'}`
+                    }}></div>
+                    <div>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: color }}>
+                        {title}
+                      </h4>
+                      <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                        {desc}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

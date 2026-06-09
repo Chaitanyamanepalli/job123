@@ -18,6 +18,7 @@ const init = (server) => {
     socket.on('join', (userId) => {
       if (userId) {
         onlineUsers.set(userId.toString(), socket.id);
+        socket.userId = userId.toString();
         console.log(`User ${userId} joined with socket ${socket.id}`);
         // Broadcast user's online status
         io.emit('user_status', { userId, status: 'online' });
@@ -32,6 +33,55 @@ const init = (server) => {
           statuses[id] = onlineUsers.has(id.toString()) ? 'online' : 'offline';
         });
         socket.emit('online_statuses', statuses);
+      }
+    });
+
+    // Join a specific conversation room
+    socket.on('joinConversation', (conversationId) => {
+      if (conversationId) {
+        socket.join(conversationId.toString());
+        console.log(`Socket ${socket.id} joined conversation room: ${conversationId}`);
+      }
+    });
+
+    // Handle real-time sendMessage event
+    socket.on('sendMessage', (messageData) => {
+      if (messageData && messageData.conversationId) {
+        socket.to(messageData.conversationId.toString()).emit('receiveMessage', messageData);
+      }
+    });
+
+    // Handle typing indicators
+    socket.on('typing', ({ conversationId, userId }) => {
+      if (conversationId) {
+        socket.to(conversationId.toString()).emit('typing', { conversationId, userId });
+      }
+    });
+
+    socket.on('stopTyping', ({ conversationId, userId }) => {
+      if (conversationId) {
+        socket.to(conversationId.toString()).emit('stopTyping', { conversationId, userId });
+      }
+    });
+
+    // Handle read receipts
+    socket.on('messageRead', async ({ conversationId, messageId }) => {
+      if (conversationId) {
+        socket.to(conversationId.toString()).emit('messageRead', { conversationId, messageId });
+        
+        try {
+          const Message = require('../models/Message');
+          if (messageId) {
+            await Message.findByIdAndUpdate(messageId, { $set: { readStatus: true } });
+          } else if (socket.userId) {
+            await Message.updateMany(
+              { conversationId, sender: { $ne: socket.userId }, readStatus: false },
+              { $set: { readStatus: true } }
+            );
+          }
+        } catch (err) {
+          console.error('Failed to update message read status in DB via socket:', err.message);
+        }
       }
     });
 

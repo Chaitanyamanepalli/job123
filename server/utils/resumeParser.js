@@ -1,11 +1,23 @@
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 
+const parseText = async (dataBuffer) => {
+  if (typeof pdfParse === 'function') {
+    const result = await pdfParse(dataBuffer);
+    return result.text;
+  } else if (pdfParse && pdfParse.PDFParse) {
+    const parser = new pdfParse.PDFParse({ data: dataBuffer });
+    const result = await parser.getText();
+    return result.text;
+  } else {
+    throw new Error('Unsupported pdf-parse module format');
+  }
+};
+
 const parseResume = async (filePath) => {
   try {
     const dataBuffer = fs.readFileSync(filePath);
-    const parsedData = await pdfParse(dataBuffer);
-    const text = parsedData.text;
+    const text = await parseText(dataBuffer);
 
     // 1. Extract Name (Heuristic: First few non-empty lines, looking for something that is 2-3 words)
     const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
@@ -21,28 +33,49 @@ const parseResume = async (filePath) => {
 
     // 2. Extract Skills (Keyword matching from common technical dictionary)
     const skillsList = [
-      'JavaScript', 'Python', 'Java', 'C++', 'C#', 'Ruby', 'PHP', 'HTML', 'CSS', 'SQL',
-      'React', 'Node.js', 'Angular', 'Vue.js', 'Express', 'Django', 'Flask', 'Spring Boot',
-      'MongoDB', 'PostgreSQL', 'MySQL', 'Redis', 'AWS', 'Docker', 'Kubernetes', 'Git', 'GitHub',
-      'TypeScript', 'GraphQL', 'Redux', 'Tailwind', 'Bootstrap', 'Next.js', 'Linux', 'Machine Learning'
+      'JavaScript', 'TypeScript', 'React', 'Node.js', 'Express', 'MongoDB', 'MySQL', 'PostgreSQL',
+      'Java', 'Python', 'C++', 'C', 'HTML', 'CSS', 'Bootstrap', 'Tailwind', 'Git', 'GitHub',
+      'AWS', 'Docker', 'Kubernetes', 'REST API', 'C#', 'Ruby', 'PHP', 'SQL', 'Angular',
+      'Vue.js', 'Django', 'Flask', 'Spring Boot', 'Redis', 'GraphQL', 'Redux', 'Next.js',
+      'Linux', 'Machine Learning'
     ];
     const skills = [];
     skillsList.forEach(skill => {
-      // Word boundary regex check for case-insensitive matching
-      const regex = new RegExp(`\\b${skill.replace('.', '\\.')}\\b`, 'i');
+      // Escape regex special characters (e.g. + in C++, . in Node.js)
+      const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Apply word boundaries only if the search term starts or ends with a word character
+      const startBoundary = /^\w/.test(skill) ? '\\b' : '';
+      const endBoundary = /\w$/.test(skill) ? '\\b' : '';
+      const regex = new RegExp(`${startBoundary}${escaped}${endBoundary}`, 'i');
       if (regex.test(text)) {
         skills.push(skill);
       }
     });
 
     // 3. Extract Experience Heuristic
-    // Search for experience years patterns (e.g. "5 years", "2+ yrs", etc.)
     let experience = '';
-    const expRegex = /(\d+)\+?\s*(years?|yrs?)\s*(of)?\s*experience/i;
-    const match = text.match(expRegex);
-    if (match) {
-      experience = `${match[1]} Years`;
-    } else {
+    const expRegexes = [
+      /(\d+)\+?\s*(years?|yrs?)\s*(of)?\s*experience/i,
+      /(\d+)\+?\s*(years?|yrs?)\b/i,
+      /worked\s+as\s+([^,\n\.]+)/i,
+      /(internship|intern)\b/i
+    ];
+
+    for (const regex of expRegexes) {
+      const match = text.match(regex);
+      if (match) {
+        if (regex.source.includes('worked')) {
+          experience = `Worked as ${match[1].trim()}`;
+        } else if (regex.source.includes('internship')) {
+          experience = 'Internship';
+        } else {
+          experience = `${match[1]}+ Years`;
+        }
+        break;
+      }
+    }
+
+    if (!experience) {
       // Search for "Experience" section and extract the following line
       const expIndex = text.toLowerCase().indexOf('experience');
       if (expIndex !== -1) {
@@ -63,10 +96,13 @@ const parseResume = async (filePath) => {
     const degrees = [
       'B.Tech', 'M.Tech', 'B.E.', 'M.E.', 'Bachelor of Technology', 'Bachelor of Engineering',
       'Bachelor of Science', 'Master of Science', 'B.Sc', 'M.Sc', 'BCA', 'MCA', 'MBA',
-      'Bachelor', 'Master', 'PhD', 'B.S.', 'M.S.'
+      'Bachelor', 'Master', 'PhD', 'B.S.', 'M.S.', 'Diploma'
     ];
     for (const degree of degrees) {
-      const reg = new RegExp(`\\b${degree.replace('.', '\\.')}\\b`, 'i');
+      const escaped = degree.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const startBoundary = /^\w/.test(degree) ? '\\b' : '';
+      const endBoundary = /\w$/.test(degree) ? '\\b' : '';
+      const reg = new RegExp(`${startBoundary}${escaped}${endBoundary}`, 'i');
       if (reg.test(text)) {
         education = degree;
         // Try to find the university/school name nearby (e.g., in the next 100 characters)

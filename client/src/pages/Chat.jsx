@@ -14,6 +14,16 @@ const Chat = ({ onPageChange, user, socket, pageParams = {} }) => {
   const [error, setError] = useState('');
 
   const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const isSelfTyping = useRef(false);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
+
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, []);
 
   // Scroll to bottom helper
   const scrollToBottom = () => {
@@ -23,6 +33,19 @@ const Chat = ({ onPageChange, user, socket, pageParams = {} }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Load messages for chosen conversation
+  const loadMessages = async (conversationId) => {
+    try {
+      setMessagesLoading(true);
+      const res = await api.getMessages(conversationId);
+      setMessages(res.data || []);
+    } catch (err) {
+      console.error('Error fetching messages:', err.message);
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
 
   // Load conversations list
   const fetchConversations = async (autoSelectRecipientId = null) => {
@@ -86,19 +109,76 @@ const Chat = ({ onPageChange, user, socket, pageParams = {} }) => {
     fetchConversations(pageParams.recipientId);
   }, [pageParams.recipientId]);
 
+  // Join room and handle read status when activeConv changes
+  useEffect(() => {
+    if (socket && activeConv) {
+      // Reset typing status when switching chats
+      setIsOtherTyping(false);
+
+      // Join the conversation room on socket
+      socket.emit('joinConversation', activeConv._id);
+
+      // Tell the other side we've read any unread messages
+      if (messages.length > 0) {
+        const lastMsg = messages[messages.length - 1];
+        const isMine = lastMsg.senderId === user._id || (lastMsg.sender?._id || lastMsg.sender) === user._id;
+        if (!isMine && !lastMsg.readStatus) {
+          socket.emit('messageRead', { conversationId: activeConv._id, messageId: lastMsg._id });
+        }
+      }
+    }
+  }, [socket, activeConv, messages.length]);
+
   // Listen to Socket events
   useEffect(() => {
     if (socket) {
-      // Listen for message events
-      socket.on('new_message', (msg) => {
-        // If message belongs to active room, append to messages
+      // Listen for real-time messages (handles both receiveMessage and new_message)
+      const handleReceiveMessage = (msg) => {
         if (activeConv && msg.conversationId === activeConv._id) {
-          setMessages(prev => [...prev, msg]);
+          // Avoid duplicate messages
+          setMessages(prev => {
+            if (prev.some(m => m._id === msg._id)) return prev;
+            return [...prev, { ...msg, readStatus: true }];
+          });
+
+          // Mark as read in DB/socket
+          socket.emit('messageRead', { conversationId: activeConv._id, messageId: msg._id });
         }
-        // Refresh conversations list to update preview snippets
+
+        // Refresh conversations list to update last message text and order
         api.getConversations().then(res => {
           setConversations(res.data || []);
         });
+      };
+
+      socket.on('receiveMessage', handleReceiveMessage);
+      socket.on('new_message', handleReceiveMessage);
+
+      // Listen for typing indicators
+      socket.on('typing', ({ conversationId, userId }) => {
+        if (activeConv && conversationId === activeConv._id && userId !== user._id) {
+          setIsOtherTyping(true);
+        }
+      });
+
+      socket.on('stopTyping', ({ conversationId, userId }) => {
+        if (activeConv && conversationId === activeConv._id && userId !== user._id) {
+          setIsOtherTyping(false);
+        }
+      });
+
+      // Listen for read receipts
+      socket.on('messageRead', ({ conversationId, messageId }) => {
+        if (activeConv && conversationId === activeConv._id) {
+          setMessages(prev => prev.map(m => {
+            const isMsgTarget = m._id === messageId;
+            const isUnreadSentMsg = (m.senderId === user._id || (m.sender?._id || m.sender) === user._id) && !m.readStatus;
+            if (isMsgTarget || isUnreadSentMsg) {
+              return { ...m, readStatus: true };
+            }
+            return m;
+          }));
+        }
       });
 
       // Listen for online/offline status changes
@@ -112,29 +192,42 @@ const Chat = ({ onPageChange, user, socket, pageParams = {} }) => {
       });
 
       return () => {
-        socket.off('new_message');
+        socket.off('receiveMessage', handleReceiveMessage);
+        socket.off('new_message', handleReceiveMessage);
+        socket.off('typing');
+        socket.off('stopTyping');
+        socket.off('messageRead');
         socket.off('user_status');
         socket.off('online_statuses');
       };
     }
-  }, [socket, activeConv]);
+  }, [socket, activeConv, user._id]);
 
-  // Load messages for chosen conversation
-  const loadMessages = async (conversationId) => {
-    try {
-      setMessagesLoading(true);
-      const res = await api.getMessages(conversationId);
-      setMessages(res.data || []);
-    } catch (err) {
-      console.error('Error fetching messages:', err.message);
-    } finally {
-      setMessagesLoading(false);
-    }
-  };
 
   const handleSelectConv = (conv) => {
     setActiveConv(conv);
     loadMessages(conv._id);
+  };
+
+  // Typing input field change handler
+  const handleInputChange = (e) => {
+    setInputText(e.target.value);
+    
+    if (socket && activeConv) {
+      if (!isSelfTyping.current) {
+        isSelfTyping.current = true;
+        socket.emit('typing', { conversationId: activeConv._id, userId: user._id });
+      }
+      
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      typingTimeoutRef.current = setTimeout(() => {
+        isSelfTyping.current = false;
+        socket.emit('stopTyping', { conversationId: activeConv._id, userId: user._id });
+      }, 2000);
+    }
   };
 
   // Dispatch message
@@ -145,14 +238,36 @@ const Chat = ({ onPageChange, user, socket, pageParams = {} }) => {
     const otherUser = activeConv.participants.find(p => p._id !== user._id);
     if (!otherUser) return;
 
+    // Reset typing status immediately
+    if (socket) {
+      socket.emit('stopTyping', { conversationId: activeConv._id, userId: user._id });
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      isSelfTyping.current = false;
+    }
+
     try {
       const textToSend = inputText;
       setInputText('');
-      const res = await api.sendMessage(otherUser._id, textToSend);
+      
+      // Send message via new room specific route
+      const res = await api.sendChatMessage(activeConv._id, textToSend);
       const newMsg = res.data;
 
       // Append locally
       setMessages(prev => [...prev, newMsg]);
+
+      // Broadcast message to room socket for instant delivery
+      if (socket) {
+        socket.emit('sendMessage', {
+          _id: newMsg._id,
+          conversationId: activeConv._id,
+          sender: user._id,
+          senderId: user._id,
+          text: textToSend,
+          createdAt: newMsg.createdAt,
+          readStatus: false
+        });
+      }
 
       // Synchronize conversations list preview
       setConversations(prev => 
@@ -270,9 +385,9 @@ const Chat = ({ onPageChange, user, socket, pageParams = {} }) => {
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span style={{ fontWeight: 800, fontSize: '1rem' }}>{other ? other.fullName : 'User'}</span>
-                        <span style={{ fontSize: '0.75rem', color: status === 'online' ? 'var(--success)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600 }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: status === 'online' ? 'var(--success)' : '#a1a1aa', display: 'inline-block' }}></span>
-                          {status === 'online' ? 'Active now' : 'Offline'}
+                        <span style={{ fontSize: '0.75rem', color: isOtherTyping ? 'var(--accent)' : status === 'online' ? 'var(--success)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600 }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isOtherTyping ? 'var(--accent)' : status === 'online' ? 'var(--success)' : '#a1a1aa', display: 'inline-block' }}></span>
+                          {isOtherTyping ? 'Typing...' : status === 'online' ? 'Active now' : 'Offline'}
                         </span>
                       </div>
                     </div>
@@ -286,7 +401,7 @@ const Chat = ({ onPageChange, user, socket, pageParams = {} }) => {
                   <LoadingSpinner />
                 ) : (
                   messages.map((msg) => {
-                    const isMine = msg.senderId === user._id;
+                    const isMine = msg.senderId === user._id || (msg.sender?._id || msg.sender) === user._id;
                     return (
                       <div 
                         key={msg._id}
@@ -311,9 +426,24 @@ const Chat = ({ onPageChange, user, socket, pageParams = {} }) => {
                           }}
                         >
                           <p style={{ fontSize: '0.9rem', lineHeight: 1.4, wordBreak: 'break-word' }}>{msg.text}</p>
-                          <span style={{ fontSize: '0.65rem', alignSelf: 'flex-end', opacity: 0.6 }}>
-                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', justifyContent: 'flex-end', opacity: 0.8 }}>
+                            <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>
+                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {isMine && (
+                              <span 
+                                style={{ 
+                                  fontSize: '0.75rem', 
+                                  color: msg.readStatus ? '#3b82f6' : 'var(--text-secondary)',
+                                  fontWeight: 'bold',
+                                  display: 'inline-flex'
+                                }}
+                                title={msg.readStatus ? 'Read' : 'Delivered'}
+                              >
+                                {msg.readStatus ? '✓✓' : '✓'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -328,7 +458,7 @@ const Chat = ({ onPageChange, user, socket, pageParams = {} }) => {
                   type="text"
                   placeholder="Type your message here..."
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
+                  onChange={handleInputChange}
                   style={{
                     flexGrow: 1,
                     border: '1px solid var(--border-color)',

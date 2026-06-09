@@ -131,7 +131,7 @@ const CandidateDashboard = ({ onPageChange, user }) => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem', flexWrap: 'wrap', gridTemplateColumns: '1fr' }} className="jobs-page-grid-layout">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }} className="jobs-page-grid-layout">
         
         {/* Left column: Recently Applied Jobs */}
         <main className="dashboard-table-card" style={{ padding: '1.75rem' }}>

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { User, Mail, Shield, Briefcase, FileText, CheckCircle2, ChevronRight, AlertCircle, Plus, X, Upload, MapPin, Sparkles } from 'lucide-react';
+import Modal from '../components/Modal';
 
-const Profile = ({ user: initialUser, onPageChange }) => {
+const Profile = ({ user: initialUser, setUser: setParentUser, onPageChange }) => {
   const [user, setUser] = useState(initialUser);
   const [stats, setStats] = useState({
     totalApplicationsSubmitted: 0,
@@ -27,6 +28,8 @@ const Profile = ({ user: initialUser, onPageChange }) => {
   // Resume state
   const [resumeFile, setResumeFile] = useState(null);
   const [uploadingResume, setUploadingResume] = useState(false);
+  const [parsedPreview, setParsedPreview] = useState(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   // Profile strength calculation
   const calculateStrength = (u) => {
@@ -124,10 +127,11 @@ const Profile = ({ user: initialUser, onPageChange }) => {
 
       const res = await api.updateProfile(payload);
       setUser(res.data);
+      if (setParentUser) setParentUser(res.data);
       // Synchronize localStorage
       const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
       if (storedUser) {
-        const updated = { ...storedUser, fullName: res.data.fullName };
+        const updated = { ...storedUser, ...res.data };
         if (localStorage.getItem('user')) localStorage.setItem('user', JSON.stringify(updated));
         if (sessionStorage.getItem('user')) sessionStorage.setItem('user', JSON.stringify(updated));
       }
@@ -137,6 +141,64 @@ const Profile = ({ user: initialUser, onPageChange }) => {
     } catch (err) {
       setError(err.message || 'Failed to update profile.');
     }
+  };
+
+  // Preview modal action handlers
+  const handleConfirmSaveProfile = async () => {
+    try {
+      setError('');
+      setSuccessMsg('');
+      
+      const payload = {
+        fullName: parsedPreview.name || user.fullName,
+        location: editForm.location || user.location,
+        experience: parsedPreview.experience || 'Fresher',
+        education: parsedPreview.education || 'Not specified',
+        skills: parsedPreview.skills ? parsedPreview.skills.join(', ') : '',
+      };
+
+      const res = await api.updateProfile(payload);
+      setUser(res.data);
+      if (setParentUser) setParentUser(res.data);
+      
+      // Synchronize localStorage
+      const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
+      if (storedUser) {
+        const updated = { ...storedUser, ...res.data };
+        localStorage.setItem('user', JSON.stringify(updated));
+        sessionStorage.setItem('user', JSON.stringify(updated));
+      }
+
+      setEditForm({
+        fullName: res.data.fullName || '',
+        location: res.data.location || '',
+        experience: res.data.experience || '',
+        education: res.data.education || '',
+        skills: res.data.skills ? res.data.skills.join(', ') : '',
+      });
+
+      setSuccessMsg('Profile updated and saved successfully with resume details!');
+      setIsPreviewModalOpen(false);
+      setParsedPreview(null);
+    } catch (err) {
+      setError(err.message || 'Failed to save profile details.');
+    }
+  };
+
+  const handleEditBeforeSaving = () => {
+    setEditForm({
+      fullName: parsedPreview.name || editForm.fullName || user.fullName,
+      location: editForm.location || user.location,
+      experience: parsedPreview.experience || editForm.experience || user.experience || 'Fresher',
+      education: parsedPreview.education || editForm.education || user.education || 'Not specified',
+      skills: parsedPreview.skills && parsedPreview.skills.length > 0
+        ? parsedPreview.skills.join(', ')
+        : editForm.skills || (user.skills ? user.skills.join(', ') : ''),
+    });
+
+    setIsEditing(true);
+    setIsPreviewModalOpen(false);
+    setParsedPreview(null);
   };
 
   // Multer PDF Resume Upload & Parsing
@@ -158,18 +220,30 @@ const Profile = ({ user: initialUser, onPageChange }) => {
       formData.append('resume', file);
 
       const res = await api.uploadResume(formData);
-      setUser(res.data.user);
       
-      // Update form values with auto-filled parsed text parameters
-      setEditForm({
-        fullName: res.data.user.fullName || '',
-        location: res.data.user.location || '',
-        experience: res.data.user.experience || '',
-        education: res.data.user.education || '',
-        skills: res.data.user.skills ? res.data.user.skills.join(', ') : '',
-      });
+      const updatedUser = res.data?.user || res.user;
+      const parsedData = res.parsedData || res.data?.parsedData;
 
-      setSuccessMsg('Resume uploaded and auto-parsed successfully! Check updated fields.');
+      if (updatedUser) {
+        setUser(updatedUser);
+        if (setParentUser) setParentUser(updatedUser);
+        
+        // Sync localStorage
+        const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user'));
+        if (storedUser) {
+          const updated = { ...storedUser, ...updatedUser };
+          localStorage.setItem('user', JSON.stringify(updated));
+          sessionStorage.setItem('user', JSON.stringify(updated));
+        }
+      }
+
+      if (parsedData && (parsedData.skills?.length > 0 || parsedData.name || parsedData.education !== 'Not specified' || parsedData.experience !== 'Fresher')) {
+        setParsedPreview(parsedData);
+        setIsPreviewModalOpen(true);
+        setSuccessMsg('Resume parsed successfully. Please review the extracted details.');
+      } else {
+        setError('Unable to extract information from this resume. Please fill profile details manually.');
+      }
     } catch (err) {
       setError(err.message || 'Failed to parse and upload resume.');
     } finally {
@@ -226,7 +300,7 @@ const Profile = ({ user: initialUser, onPageChange }) => {
         )}
 
         {/* Details and Stats Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem', gridTemplateColumns: '1fr' }} className="jobs-page-grid-layout">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }} className="jobs-page-grid-layout">
           
           {/* Left Panel: Profile fields */}
           <div className="profile-info-card" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '2rem', boxShadow: 'var(--card-shadow)' }}>
@@ -398,7 +472,7 @@ const Profile = ({ user: initialUser, onPageChange }) => {
                       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                         <span style={{ fontSize: '0.85rem', fontWeight: 700, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>Resume PDF Document</span>
                         <a 
-                          href={`http://localhost:5000${user.resumeUrl}`} 
+                          href={`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000'}${user.resumeUrl}`} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           style={{ fontSize: '0.75rem', color: 'var(--accent-hover)', fontWeight: 600 }}
@@ -445,7 +519,7 @@ const Profile = ({ user: initialUser, onPageChange }) => {
                   />
                   <Upload size={24} style={{ margin: '0 auto 0.5rem auto', color: 'var(--text-secondary)' }} />
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, display: 'block' }}>
-                    {uploadingResume ? 'Parsing PDF resume...' : 'Select PDF resume'}
+                    {uploadingResume ? 'Parsing PDF resume...' : (user.resumeUrl ? 'Replace Resume' : 'Upload Resume')}
                   </span>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>
                     Max file size 5MB
@@ -515,6 +589,72 @@ const Profile = ({ user: initialUser, onPageChange }) => {
         </div>
 
       </div>
+
+      {/* Resume Parse Preview Modal */}
+      {parsedPreview && (
+        <Modal
+          isOpen={isPreviewModalOpen}
+          onClose={() => {
+            setIsPreviewModalOpen(false);
+            setParsedPreview(null);
+          }}
+          title="Parsed Resume Details Preview"
+          footer={
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', width: '100%' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={handleEditBeforeSaving}
+              >
+                Edit Before Saving
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleConfirmSaveProfile}
+              >
+                Save Profile
+              </button>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              Resume parsed successfully. Please review the extracted details below.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.25rem', backgroundColor: 'var(--bg-primary)' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block' }}>Candidate Name</span>
+                <span style={{ fontWeight: 700, fontSize: '1.05rem' }}>{parsedPreview.name || 'Not detected'}</span>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block' }}>Education</span>
+                <span style={{ fontWeight: 700 }}>{parsedPreview.education || 'Not detected'}</span>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block' }}>Experience</span>
+                <span style={{ fontWeight: 700 }}>{parsedPreview.experience || 'Not detected'}</span>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>Matched Skills</span>
+                {parsedPreview.skills && parsedPreview.skills.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                    {parsedPreview.skills.map((s, i) => (
+                      <span key={i} style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '0.2rem 0.5rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: 600 }}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>None detected</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

@@ -46,6 +46,14 @@ const applyJob = async (req, res, next) => {
       });
     }
 
+    // Check if the candidate has uploaded a resume
+    if (!req.user.resumeUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload your resume before applying.',
+      });
+    }
+
     // Check if applicant already applied to this specific job
     // This prevents candidates from submitting multiple applications for the same job.
     const alreadyApplied = await Application.findOne({ jobId, candidateId: req.user._id });
@@ -63,6 +71,8 @@ const applyJob = async (req, res, next) => {
       phone,
       jobId,
       candidateId: req.user._id,
+      resumeUrl: req.user.resumeUrl,
+      applicationStatus: 'Pending',
     });
 
     // Notify Recruiter via Email
@@ -179,7 +189,7 @@ const getApplicationsByJob = async (req, res, next) => {
       });
     }
 
-    const applications = await Application.find({ jobId }).populate('candidateId', 'resumeUrl skills experience education').sort({ appliedAt: -1 });
+    const applications = await Application.find({ jobId }).populate('candidateId', 'resumeUrl skills experience education location parsedResumeData').sort({ appliedAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -307,10 +317,94 @@ const updateApplicationStatus = async (req, res, next) => {
   }
 };
 
+// @desc    Update application status (PATCH)
+// @route   PATCH /api/applications/:id/status
+// @access  Private (Recruiter only)
+const updateApplicationStatusPatch = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['Pending', 'Shortlisted', 'Accepted', 'Rejected'];
+
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be: Pending, Shortlisted, Accepted, or Rejected',
+      });
+    }
+
+    const applicationExists = await Application.findById(req.params.id);
+    if (!applicationExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Application not found',
+      });
+    }
+
+    const job = await Job.findById(applicationExists.jobId);
+    if (!job || job.postedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update application status for this job listing',
+      });
+    }
+
+    let mappedStatus = 'Under Review';
+    if (status === 'Shortlisted') mappedStatus = 'Shortlisted';
+    if (status === 'Accepted' || status === 'Rejected') mappedStatus = status;
+
+    const application = await Application.findByIdAndUpdate(
+      req.params.id,
+      { 
+        applicationStatus: status,
+        status: mappedStatus
+      },
+      { new: true, runValidators: true }
+    );
+
+    // Save Notification to Database for Candidate
+    try {
+      let notifTitle = 'Application Status Updated';
+      if (status === 'Accepted') notifTitle = 'Application Accepted';
+      if (status === 'Rejected') notifTitle = 'Application Rejected';
+      if (status === 'Shortlisted') notifTitle = 'Application Shortlisted';
+
+      const notification = await Notification.create({
+        recipient: application.candidateId,
+        sender: req.user._id,
+        type: 'status_change',
+        title: notifTitle,
+        message: `Your application status for "${job.title}" has been updated to "${status}"`,
+      });
+
+      // Send real-time event via Socket.IO
+      const { sendEventToUser } = require('../config/socket');
+      sendEventToUser(application.candidateId, 'notification', {
+        _id: notification._id,
+        type: 'status_change',
+        title: notification.title,
+        message: notification.message,
+        isRead: false,
+        createdAt: notification.createdAt,
+      });
+    } catch (err) {
+      console.error('Failed to save or send socket notification to candidate:', err.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Application status updated successfully',
+      application,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   applyJob,
   getApplicationsByJob,
   getUserApplications,
   updateApplicationStatus,
+  updateApplicationStatusPatch,
 };
 

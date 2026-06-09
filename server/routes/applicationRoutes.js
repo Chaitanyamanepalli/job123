@@ -20,6 +20,7 @@ const {
   getApplicationsByJob,
   getUserApplications,
   updateApplicationStatus,
+  updateApplicationStatusPatch,
 } = require('../controllers/applicationController');
 const { validateApplication } = require('../validators/applicationValidator');
 const { protect } = require('../middleware/authMiddleware');
@@ -36,6 +37,9 @@ router.get('/applications/user', protect, authorizeRoles('candidate'), getUserAp
 
 // Route for recruiter to shortlist or reject a job application
 router.put('/applications/:id/status', protect, authorizeRoles('recruiter'), updateApplicationStatus);
+
+// Route for recruiter to update application status (PATCH)
+router.patch('/applications/:id/status', protect, authorizeRoles('recruiter'), updateApplicationStatusPatch);
 
 module.exports = router;
 
