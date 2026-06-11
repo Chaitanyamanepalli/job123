@@ -27,6 +27,38 @@ const nodemailer = require('nodemailer');
 // Usage:
 // Imported and called inside authController.js for forgotPassword reset links.
 const sendEmail = async (options) => {
+  // 0) Use Resend HTTPS API if key is present to bypass Render's free tier SMTP port blocks (25/465/587)
+  if (process.env.RESEND_API_KEY) {
+    console.log('RESEND_API_KEY detected. Dispatched via Resend HTTP API over port 443...');
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+          to: options.to,
+          subject: options.subject,
+          text: options.text,
+          html: options.html || options.text,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send email via Resend API');
+      }
+
+      console.log(`Email sent successfully via Resend. ID: ${data.id}`);
+      return { messageId: data.id };
+    } catch (err) {
+      console.error('Resend API Dispatch Error:', err.message);
+      throw err;
+    }
+  }
+
   let transporter;
 
   // 1) Configure Transporter based on env settings

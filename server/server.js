@@ -44,6 +44,7 @@ requiredEnv.forEach(envVar => {
 });
 
 const app = express();
+app.set('trust proxy', 1); // Trust Render's reverse proxy for express-rate-limit
 const server = http.createServer(app);
 
 // Initialize Socket.IO Server
