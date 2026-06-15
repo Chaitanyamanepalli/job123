@@ -98,50 +98,48 @@ const signup = async (req, res, next) => {
       role,
     });
 
-    // Dispatch Welcome Email to the registered user
-    try {
-      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-      const dashboardPath = user.role === 'recruiter' ? '/recruiter/dashboard' : '/candidate/dashboard';
-      const dashboardUrl = `${clientUrl}${dashboardPath}`;
+    // Dispatch Welcome Email asynchronously to the registered user (non-blocking)
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const dashboardPath = user.role === 'recruiter' ? '/recruiter/dashboard' : '/candidate/dashboard';
+    const dashboardUrl = `${clientUrl}${dashboardPath}`;
 
-      await sendEmail({
-        to: user.email,
-        subject: `Welcome to JobPortal Pro, ${user.fullName}!`,
-        text: `Hello ${user.fullName},\n\nWelcome to JobPortal Pro! Your account has been successfully created as a ${user.role}.\n\nRegistered Email: ${user.email}\n\nYou can log in and explore job opportunities or post jobs here:\n${dashboardUrl}\n\nRegards,\nJobPortal Pro Team`,
-        html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 8px;">
-            <h2 style="color: #6366f1; border-bottom: 1px solid #eee; padding-bottom: 10px;">Welcome to JobPortal Pro!</h2>
-            <p>Hello <strong>${user.fullName}</strong>,</p>
-            <p>Thank you for joining us! Your account has been successfully registered on JobPortal Pro. We're excited to have you on board.</p>
-            <h3 style="color: #4f46e5; margin-top: 20px;">Account Summary</h3>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-              <tr>
-                <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; width: 30%;">Name:</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${user.fullName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Email:</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${user.email}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Account Role:</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-transform: capitalize;">${user.role}</td>
-              </tr>
-            </table>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${dashboardUrl}" style="background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Go to Dashboard</a>
-            </div>
-            <p style="font-size: 0.9em; color: #666; border-top: 1px solid #eee; padding-top: 15px; margin-top: 20px;">
-              If you have any questions or need support, please contact our support team.<br /><br />
-              Regards,<br />
-              <strong>JobPortal Pro Team</strong>
-            </p>
+    sendEmail({
+      to: user.email,
+      subject: `Welcome to JobPortal Pro, ${user.fullName}!`,
+      text: `Hello ${user.fullName},\n\nWelcome to JobPortal Pro! Your account has been successfully created as a ${user.role}.\n\nRegistered Email: ${user.email}\n\nYou can log in and explore job opportunities or post jobs here:\n${dashboardUrl}\n\nRegards,\nJobPortal Pro Team`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 8px;">
+          <h2 style="color: #6366f1; border-bottom: 1px solid #eee; padding-bottom: 10px;">Welcome to JobPortal Pro!</h2>
+          <p>Hello <strong>${user.fullName}</strong>,</p>
+          <p>Thank you for joining us! Your account has been successfully registered on JobPortal Pro. We're excited to have you on board.</p>
+          <h3 style="color: #4f46e5; margin-top: 20px;">Account Summary</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold; width: 30%;">Name:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${user.fullName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Email:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${user.email}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Account Role:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-transform: capitalize;">${user.role}</td>
+            </tr>
+          </table>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${dashboardUrl}" style="background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Go to Dashboard</a>
           </div>
-        `
-      });
-    } catch (emailErr) {
+          <p style="font-size: 0.9em; color: #666; border-top: 1px solid #eee; padding-top: 15px; margin-top: 20px;">
+            If you have any questions or need support, please contact our support team.<br /><br />
+            Regards,<br />
+            <strong>JobPortal Pro Team</strong>
+          </p>
+        </div>
+      `
+    }).catch(emailErr => {
       console.error('Failed to send welcome email to new user:', emailErr.message);
-    }
+    });
 
     res.status(201).json({
       success: true,
