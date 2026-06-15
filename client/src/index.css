@@ -1444,11 +1444,11 @@ button, input, select, textarea {
   font-family: var(--font-heading);
 }
 
-/* Recruiter Dashboard Stats Cards */
+/* Recruiter Dashboard Stats Cards with 3D Depth */
 .recruiter-stat-card {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 1.5rem;
   display: flex;
   align-items: center;
@@ -1456,13 +1456,15 @@ button, input, select, textarea {
   gap: 1rem;
   cursor: pointer;
   box-shadow: var(--card-shadow);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s ease, border-color 0.4s ease;
+  transform-style: preserve-3d;
+  perspective: 1000px;
 }
 
 .recruiter-stat-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-8px) rotateX(3deg) rotateY(-3deg);
   border-color: var(--accent);
-  box-shadow: 0 12px 20px rgba(163, 230, 53, 0.08);
+  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.1), 0 0 25px rgba(163, 230, 53, 0.12);
 }
 
 .stat-card-left {
@@ -1470,6 +1472,7 @@ button, input, select, textarea {
   flex-direction: column;
   gap: 0.25rem;
   min-width: 0;
+  transition: transform 0.4s ease;
 }
 
 .stat-card-label {
@@ -1501,11 +1504,17 @@ button, input, select, textarea {
   align-items: center;
   justify-content: center;
   color: var(--accent);
-  transition: all 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), background-color 0.3s ease, color 0.3s ease;
+}
+
+.recruiter-stat-card:hover .stat-card-left {
+  transform: translateZ(20px);
 }
 
 .recruiter-stat-card:hover .stat-card-icon-wrap {
-  transform: scale(1.1);
+  transform: translateZ(35px) scale(1.12);
+  background-color: var(--accent);
+  color: #111111;
 }
 
 @media (max-width: 768px) {
@@ -2994,4 +3003,106 @@ button, input, select, textarea {
 .about-secondary-cta:hover {
   background-color: rgba(255, 255, 255, 0.05);
   border-color: #ffffff;
+}
+
+/* ==========================================================================
+   ATS 3D VISUAL STYLING & FLOATING ORBS
+   ========================================================================== */
+
+/* Ambient Floating Glow Orbs background lights */
+.glow-orb-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: floatOrb 25s infinite alternate ease-in-out;
+}
+
+.glow-orb-1 {
+  width: 400px;
+  height: 400px;
+  background-color: #6366F1; /* High-tech Indigo */
+  top: 15%;
+  right: 5%;
+  animation-duration: 22s;
+}
+
+.glow-orb-2 {
+  width: 500px;
+  height: 500px;
+  background-color: #a3e635; /* Custom Accent (Lime Glow) */
+  bottom: 15%;
+  left: -5%;
+  animation-duration: 32s;
+}
+
+[data-theme="light"] .glow-orb {
+  opacity: 0.07;
+  mix-blend-mode: multiply;
+  filter: blur(140px);
+}
+
+@keyframes floatOrb {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(60px, -60px) scale(1.15);
+  }
+  100% {
+    transform: translate(-40px, 50px) scale(0.9);
+  }
+}
+
+/* 3D Glass Card wrapper */
+.card-3d-ats {
+  position: relative;
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s ease, border-color 0.4s ease;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.card-3d-ats:hover {
+  transform: translateY(-8px) rotateX(2.5deg) rotateY(-2.5deg);
+  border-color: var(--accent);
+  box-shadow: 0 25px 45px rgba(0, 0, 0, 0.15), 0 0 30px rgba(163, 230, 53, 0.12);
+}
+
+/* 3D Hover tilt wrapper for lists */
+.app-viewer-card {
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s ease, border-color 0.4s ease !important;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.app-viewer-card:hover {
+  transform: translateY(-6px) rotateX(2deg) rotateY(-2deg);
+  border-color: var(--accent) !important;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12), 0 0 20px rgba(163, 230, 53, 0.08) !important;
+}
+
+/* Glassmorphism panel styling */
+.glass-panel-ats {
+  background: rgba(255, 255, 255, 0.01) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+}
+
+[data-theme="light"] .glass-panel-ats {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
 }

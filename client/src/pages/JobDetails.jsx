@@ -365,6 +365,20 @@ const JobDetails = ({ pageParams, onPageChange, onApply, appliedJobIds = [], use
                     <Check size={18} />
                     <span>Applied</span>
                   </button>
+                ) : job.jobStatus === 'Closed' ? (
+                  <button 
+                    className="details-action-apply-now-btn"
+                    disabled
+                    style={{
+                      backgroundColor: 'var(--border-color)',
+                      color: 'var(--text-secondary)',
+                      cursor: 'not-allowed',
+                      opacity: 0.7,
+                      fontWeight: 600
+                    }}
+                  >
+                    Applications Closed
+                  </button>
                 ) : (
                   <button 
                     className="details-action-apply-now-btn"

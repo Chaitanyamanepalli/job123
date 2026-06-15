@@ -25,6 +25,8 @@ const {
   saveJob,
   unsaveJob,
   uploadJobLogo,
+  closeJob,
+  reopenJob,
 } = require('../controllers/jobController');
 const { uploadLogo } = require('../middleware/uploadMiddleware');
 const { validateJob } = require('../validators/jobValidator');
@@ -54,5 +56,9 @@ router.route('/:id/save')
 
 // Logo upload route (Recruiter only)
 router.post('/upload-logo', protect, authorizeRoles('recruiter'), uploadLogo, uploadJobLogo);
+
+// Job Status Management routes (Recruiter only)
+router.patch('/:id/close', protect, authorizeRoles('recruiter'), closeJob);
+router.patch('/:id/reopen', protect, authorizeRoles('recruiter'), reopenJob);
 
 module.exports = router;

@@ -40,6 +40,7 @@ import CandidateDashboard from './pages/CandidateDashboard';
 import SavedJobs from './pages/SavedJobs';
 import Chat from './pages/Chat';
 import AdminDashboard from './pages/AdminDashboard';
+import RecruiterAnalytics from './pages/RecruiterAnalytics';
 
 // Purpose:
 // Orchestrates visual routing views, authentication updates, and alert notifications.
@@ -235,6 +236,8 @@ const AppContent = () => {
       navigate(`/jobs/${params.id}`);
     } else if (target === 'dashboard' || target === '/recruiter/dashboard') {
       navigate('/recruiter/dashboard');
+    } else if (target === 'analytics' || target === '/recruiter/analytics') {
+      navigate('/recruiter/analytics');
     } else if (target === 'candidate-dashboard' || target === '/candidate/dashboard') {
       navigate('/candidate/dashboard');
     } else if (target === 'saved-jobs' || target === '/saved-jobs') {
@@ -300,6 +303,9 @@ const AppContent = () => {
     }
 
     // Resolve Recruiter paths (handled within RecruiterDashboard component router sub-view)
+    if (path === '/recruiter/analytics') {
+      return { name: 'recruiter-analytics' };
+    }
     if (path === '/recruiter/dashboard' || path === '/recruiter/jobs' || path === '/recruiter/create-job' || path.startsWith('/recruiter/edit-job') || path === '/recruiter/applications') {
       return { name: 'recruiter-dashboard' };
     }
@@ -320,7 +326,7 @@ const AppContent = () => {
   useEffect(() => {
     const route = parseRoute();
     const publicPaths = ['home', 'jobs', 'job-details', 'login', 'signup', 'forgot-password', 'reset-password', 'about'];
-    const recruiterPaths = ['recruiter-dashboard'];
+    const recruiterPaths = ['recruiter-dashboard', 'recruiter-analytics'];
     const candidatePaths = ['my-applications', 'candidate-dashboard', 'saved-jobs'];
     const adminPaths = ['admin-dashboard'];
 
@@ -395,6 +401,12 @@ const AppContent = () => {
         return (
           <RecruiterDashboard 
             currentPath={currentPath}
+            onPageChange={handlePageChange}
+          />
+        );
+      case 'recruiter-analytics':
+        return (
+          <RecruiterAnalytics 
             onPageChange={handlePageChange}
           />
         );

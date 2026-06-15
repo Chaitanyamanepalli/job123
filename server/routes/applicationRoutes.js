@@ -21,6 +21,9 @@ const {
   getUserApplications,
   updateApplicationStatus,
   updateApplicationStatusPatch,
+  searchApplications,
+  bulkUpdateApplications,
+  exportApplications,
 } = require('../controllers/applicationController');
 const { validateApplication } = require('../validators/applicationValidator');
 const { protect } = require('../middleware/authMiddleware');
@@ -34,6 +37,15 @@ router.get('/jobs/:id/applications', protect, authorizeRoles('recruiter'), getAp
 
 // Route for candidate to fetch their own job applications history
 router.get('/applications/user', protect, authorizeRoles('candidate'), getUserApplications);
+
+// Route for recruiter to search/filter candidates
+router.get('/applications/search', protect, authorizeRoles('recruiter'), searchApplications);
+
+// Route for recruiter to export candidates to CSV
+router.get('/applications/export', protect, authorizeRoles('recruiter'), exportApplications);
+
+// Route for recruiter to bulk update applications
+router.patch('/applications/bulk-update', protect, authorizeRoles('recruiter'), bulkUpdateApplications);
 
 // Route for recruiter to shortlist or reject a job application
 router.put('/applications/:id/status', protect, authorizeRoles('recruiter'), updateApplicationStatus);

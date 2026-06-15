@@ -38,7 +38,8 @@ import {
   ArrowRight,
   TrendingUp,
   FileText,
-  MessageSquare
+  MessageSquare,
+  CheckCircle
 } from 'lucide-react';
 
 // Purpose:
@@ -89,6 +90,230 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
   const [selectedJob, setSelectedJob] = useState(null);
   const [modalApplications, setModalApplications] = useState([]);
   const [modalAppsLoading, setModalAppsLoading] = useState(false);
+
+  // Search & Filter state for Applicants view
+  const [appSearchKeyword, setAppSearchKeyword] = useState('');
+  const [appStatusFilter, setAppStatusFilter] = useState('All');
+  const [appJobFilter, setAppJobFilter] = useState('');
+  const [filteredApps, setFilteredApps] = useState([]);
+  const [appsSearchLoading, setAppsSearchLoading] = useState(false);
+
+  // Bulk Selection state
+  const [selectedAppIds, setSelectedAppIds] = useState([]);
+
+  // Notes state
+  const [notesAppId, setNotesAppId] = useState(null);
+  const [selectedCandidateName, setSelectedCandidateName] = useState('');
+  const [appNotes, setAppNotes] = useState([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+
+  // Interview modal state
+  const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
+  const [interviewAppId, setInterviewAppId] = useState(null);
+  const [activeInterview, setActiveInterview] = useState(null);
+  const [interviewFormData, setInterviewFormData] = useState({
+    date: '',
+    time: '',
+    mode: 'Online',
+    meetingLink: '',
+    remarks: '',
+  });
+  const [interviewSubmitLoading, setInterviewSubmitLoading] = useState(false);
+
+  // Recent Activities
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+
+  // Local toast alert banner
+  const [localToast, setLocalToast] = useState(null);
+
+  const triggerLocalToast = (message, type = 'success') => {
+    setLocalToast({ message, type });
+    setTimeout(() => setLocalToast(null), 4000);
+  };
+
+  // Notes operations
+  const fetchNotes = async (appId) => {
+    try {
+      setNotesLoading(true);
+      const res = await api.getNotes(appId);
+      setAppNotes(res.notes || []);
+    } catch (err) {
+      triggerLocalToast(err.message || 'Failed to load notes', 'error');
+    } finally {
+      setNotesLoading(false);
+    }
+  };
+
+  const handleOpenNotes = (app) => {
+    setNotesAppId(app._id);
+    setSelectedCandidateName(app.name);
+    setIsNotesModalOpen(true);
+    fetchNotes(app._id);
+  };
+
+  const handleAddNote = async (e) => {
+    e.preventDefault();
+    if (!newNoteText.trim()) return;
+    try {
+      await api.createNote(notesAppId, newNoteText);
+      setNewNoteText('');
+      fetchNotes(notesAppId);
+      triggerLocalToast('Note added successfully');
+    } catch (err) {
+      triggerLocalToast(err.message || 'Failed to add note', 'error');
+    }
+  };
+
+  const handleUpdateNote = async (noteId) => {
+    if (!editingNoteText.trim()) return;
+    try {
+      await api.updateNote(noteId, editingNoteText);
+      setEditingNoteId(null);
+      setEditingNoteText('');
+      fetchNotes(notesAppId);
+      triggerLocalToast('Note updated successfully');
+    } catch (err) {
+      triggerLocalToast(err.message || 'Failed to update note', 'error');
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    if (window.confirm('Are you sure you want to delete this note?')) {
+      try {
+        await api.deleteNote(noteId);
+        fetchNotes(notesAppId);
+        triggerLocalToast('Note deleted successfully');
+      } catch (err) {
+        triggerLocalToast(err.message || 'Failed to delete note', 'error');
+      }
+    }
+  };
+
+  // Interview operations
+  const fetchInterviewForApp = async (appId) => {
+    try {
+      const res = await api.getInterviewByApplication(appId);
+      if (res.interview) {
+        setActiveInterview(res.interview);
+        setInterviewFormData({
+          date: res.interview.date ? new Date(res.interview.date).toISOString().split('T')[0] : '',
+          time: res.interview.time || '',
+          mode: res.interview.mode || 'Online',
+          meetingLink: res.interview.meetingLink || '',
+          remarks: res.interview.remarks || '',
+        });
+      } else {
+        setActiveInterview(null);
+        setInterviewFormData({
+          date: '',
+          time: '',
+          mode: 'Online',
+          meetingLink: '',
+          remarks: '',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch interview:', err.message);
+    }
+  };
+
+  const handleOpenInterviewModal = (app) => {
+    setInterviewAppId(app._id);
+    setSelectedCandidateName(app.name);
+    setIsInterviewModalOpen(true);
+    fetchInterviewForApp(app._id);
+  };
+
+  const handleScheduleOrUpdateInterview = async (e) => {
+    e.preventDefault();
+    const { date, time, mode, meetingLink, remarks } = interviewFormData;
+    if (!date || !time || !mode) {
+      triggerLocalToast('Please fill all required fields', 'error');
+      return;
+    }
+    try {
+      setInterviewSubmitLoading(true);
+      if (activeInterview) {
+        await api.updateInterview(activeInterview._id, {
+          date,
+          time,
+          mode,
+          meetingLink,
+          remarks,
+          status: activeInterview.status
+        });
+        triggerLocalToast('Interview schedule updated successfully');
+      } else {
+        await api.scheduleInterview({
+          applicationId: interviewAppId,
+          date,
+          time,
+          mode,
+          meetingLink,
+          remarks
+        });
+        triggerLocalToast('Interview scheduled successfully');
+      }
+      setIsInterviewModalOpen(false);
+      performAppsSearch(); // refresh search list
+      fetchDashboardData();
+    } catch (err) {
+      triggerLocalToast(err.message || 'Failed to save interview schedule', 'error');
+    } finally {
+      setInterviewSubmitLoading(false);
+    }
+  };
+
+  const handleCancelInterview = async (interviewId) => {
+    if (window.confirm('Are you sure you want to cancel and remove this interview schedule?')) {
+      try {
+        await api.cancelInterview(interviewId);
+        setIsInterviewModalOpen(false);
+        performAppsSearch();
+        fetchDashboardData();
+        triggerLocalToast('Interview cancelled successfully');
+      } catch (err) {
+        triggerLocalToast(err.message || 'Failed to cancel interview', 'error');
+      }
+    }
+  };
+
+  // Bulk Actions
+  const toggleSelectRow = (appId) => {
+    setSelectedAppIds(prev => {
+      if (prev.includes(appId)) {
+        return prev.filter(id => id !== appId);
+      } else {
+        return [...prev, appId];
+      }
+    });
+  };
+
+  const toggleSelectAll = (appsOnPage) => {
+    if (selectedAppIds.length === appsOnPage.length) {
+      setSelectedAppIds([]);
+    } else {
+      setSelectedAppIds(appsOnPage.map(app => app._id));
+    }
+  };
+
+  const handleBulkStatusChange = async (targetStatus) => {
+    if (selectedAppIds.length === 0) return;
+    try {
+      await api.bulkUpdateApplications(selectedAppIds, targetStatus);
+      triggerLocalToast(`Bulk updated ${selectedAppIds.length} applicants to ${targetStatus} successfully`);
+      setSelectedAppIds([]);
+      performAppsSearch();
+      fetchDashboardData();
+    } catch (err) {
+      triggerLocalToast(err.message || 'Bulk status change failed', 'error');
+    }
+  };
 
   // Parse edit job ID
   const editJobMatch = currentPath.match(/^\/recruiter\/edit-job\/([a-fA-F0-9]{24}|[0-9]+)$/);
@@ -150,6 +375,17 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
       // Sort applications descending by date and take top 5 for "Recent Applications"
       allApps.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt));
       setRecentApplications(allApps);
+
+      // Fetch recruiter activities
+      try {
+        setActivitiesLoading(true);
+        const actRes = await api.getRecentActivities();
+        setRecentActivities(actRes.activities || []);
+      } catch (actErr) {
+        console.error('Error fetching activities:', actErr.message);
+      } finally {
+        setActivitiesLoading(false);
+      }
       
     } catch (err) {
       setError(err.message || 'Failed to retrieve dashboard listings.');
@@ -157,6 +393,29 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
       setLoading(false);
     }
   };
+
+  // Real-time applicant search & filter loader
+  const performAppsSearch = async () => {
+    try {
+      setAppsSearchLoading(true);
+      const res = await api.searchApplications({
+        keyword: appSearchKeyword,
+        status: appStatusFilter,
+        jobId: appJobFilter
+      });
+      setFilteredApps(res.applications || []);
+    } catch (err) {
+      console.error('Failed to search applications:', err.message);
+    } finally {
+      setAppsSearchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentPath === '/recruiter/applications') {
+      performAppsSearch();
+    }
+  }, [appSearchKeyword, appStatusFilter, appJobFilter, currentPath]);
 
   // Run the data load whenever path transitions occur
   useEffect(() => {
@@ -410,6 +669,28 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
     }
   };
 
+  const handleCloseJob = async (id) => {
+    if (window.confirm('Are you sure you want to close this job listing? Candidates will no longer be able to apply.')) {
+      try {
+        await api.closeJob(id);
+        fetchDashboardData();
+      } catch (err) {
+        alert(err.message || 'Failed to close job.');
+      }
+    }
+  };
+
+  const handleReopenJob = async (id) => {
+    if (window.confirm('Are you sure you want to reopen this job listing? Candidates will be able to apply again.')) {
+      try {
+        await api.reopenJob(id);
+        fetchDashboardData();
+      } catch (err) {
+        alert(err.message || 'Failed to reopen job.');
+      }
+    }
+  };
+
   // Purpose:
   // Opens the modal overlay showing the complete list of candidate applications for a specific job.
   //
@@ -444,16 +725,18 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
   const handleStatusChange = async (appId, newStatus) => {
     try {
       await api.updateApplicationStatus(appId, newStatus);
-      // Re-fetch all data to synchronize
+      triggerLocalToast(`Application status updated to ${newStatus}`);
       fetchDashboardData();
-      // Update modal list if open
+      if (currentPath === '/recruiter/applications') {
+        performAppsSearch();
+      }
       if (isAppsModalOpen) {
         setModalApplications(prev => 
           prev.map(app => app._id === appId ? { ...app, status: newStatus } : app)
         );
       }
     } catch (err) {
-      alert(err.message || 'Failed to update application status.');
+      triggerLocalToast(err.message || 'Failed to update application status.', 'error');
     }
   };
 
@@ -1039,140 +1322,347 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
           </button>
         </div>
 
-        {recentApplications.length === 0 ? (
+        {/* Search & Filters Row */}
+        <div 
+          style={{ 
+            display: 'flex', 
+            flexWrap: 'wrap', 
+            gap: '1rem', 
+            marginBottom: '1.5rem', 
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', flex: 1, minWidth: '300px' }}>
+            {/* Search Input */}
+            <div style={{ flex: '2', minWidth: '200px', position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="Search candidate by name, email, or skills..."
+                value={appSearchKeyword}
+                onChange={(e) => setAppSearchKeyword(e.target.value)}
+                className="form-input"
+                style={{ paddingLeft: '2.5rem', borderRadius: '100px' }}
+              />
+              <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              </span>
+            </div>
+
+            {/* Job Filter Select */}
+            <div style={{ flex: '1', minWidth: '150px' }}>
+              <select
+                value={appJobFilter}
+                onChange={(e) => setAppJobFilter(e.target.value)}
+                className="form-select"
+                style={{ borderRadius: '100px', cursor: 'pointer' }}
+              >
+                <option value="">All Jobs</option>
+                {jobs.map((job) => (
+                  <option key={job._id} value={job._id}>
+                    {job.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter Select */}
+            <div style={{ flex: '1', minWidth: '150px' }}>
+              <select
+                value={appStatusFilter}
+                onChange={(e) => setAppStatusFilter(e.target.value)}
+                className="form-select"
+                style={{ borderRadius: '100px', cursor: 'pointer' }}
+              >
+                <option value="All">All Statuses</option>
+                <option value="Applied">Applied</option>
+                <option value="Under Review">Under Review</option>
+                <option value="Shortlisted">Shortlisted</option>
+                <option value="Interview Scheduled">Interview Scheduled</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Hired">Hired</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Export to CSV Button */}
+          <button
+            onClick={async () => {
+              try {
+                triggerLocalToast('Exporting candidate list...');
+                await api.exportApplications(appJobFilter);
+              } catch (err) {
+                triggerLocalToast(err.message || 'Export failed', 'error');
+              }
+            }}
+            className="btn btn-secondary"
+            style={{ borderRadius: '100px', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            <span>Export CSV</span>
+          </button>
+        </div>
+
+        {/* Bulk Actions Control Bar */}
+        {selectedAppIds.length > 0 && (
+          <div 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              padding: '0.75rem 1.25rem', 
+              backgroundColor: 'rgba(99, 102, 241, 0.08)', 
+              border: '1px solid rgba(99, 102, 241, 0.2)', 
+              borderRadius: '12px', 
+              marginBottom: '1.25rem',
+              animation: 'modalSlideUp 0.2s ease-out'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                {selectedAppIds.length} candidate{selectedAppIds.length > 1 ? 's' : ''} selected
+              </span>
+              <button 
+                onClick={() => setSelectedAppIds([])} 
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}
+              >
+                Clear selection
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button 
+                onClick={() => handleBulkStatusChange('Under Review')} 
+                className="btn btn-secondary" 
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+              >
+                Mark Under Review
+              </button>
+              <button 
+                onClick={() => handleBulkStatusChange('Shortlisted')} 
+                className="btn btn-secondary" 
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+              >
+                Mark Shortlisted
+              </button>
+              <button 
+                onClick={() => handleBulkStatusChange('Rejected')} 
+                className="btn btn-danger" 
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+              >
+                Mark Rejected
+              </button>
+              <button 
+                onClick={() => handleBulkStatusChange('Hired')} 
+                className="btn btn-secondary" 
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', color: 'var(--success)' }}
+              >
+                Mark Hired
+              </button>
+            </div>
+          </div>
+        )}
+
+        {appsSearchLoading ? (
+          <LoadingSpinner />
+        ) : filteredApps.length === 0 ? (
           <div className="dashboard-table-card" style={{ padding: '3rem 2rem', textAlign: 'center' }}>
             <UserPlus size={48} className="empty-state-icon" style={{ color: 'var(--text-secondary)', margin: '0 auto 1rem auto' }} />
-            <h3 className="empty-state-title">No applications received yet</h3>
-            <p className="empty-state-desc">Vacancies you publish will collect applications here.</p>
-            <button className="btn btn-primary animate-hover" style={{ marginTop: '1rem' }} onClick={() => onPageChange('/recruiter/create-job')}>
-              Publish a Vacancy
-            </button>
+            <h3 className="empty-state-title">No matching applications found</h3>
+            <p className="empty-state-desc">Try modifying your search keywords or filter settings.</p>
           </div>
         ) : (
-          <div className="app-viewer-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
-            {recentApplications.map((app) => (
-              <div key={app._id} className="app-viewer-card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem', boxShadow: 'var(--card-shadow)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{app.name}</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 600, marginTop: '0.15rem' }}>
-                      Applied for: {app.jobTitle}
-                    </p>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                      Company: {app.companyName}
-                    </p>
-                  </div>
-                  <span className="badge badge-secondary" style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                    <Calendar size={10} />
-                    {new Date(app.appliedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </span>
-                </div>
+          <div className="dashboard-table-card" style={{ margin: 0 }}>
+            <div className="table-responsive">
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '40px', textAlign: 'center', padding: '1.15rem 1rem' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={filteredApps.length > 0 && selectedAppIds.length === filteredApps.length} 
+                        onChange={() => toggleSelectAll(filteredApps)}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                      />
+                    </th>
+                    <th>Candidate Info</th>
+                    <th>Position</th>
+                    <th>Extracted Skills</th>
+                    <th>Workflow Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredApps.map((app) => {
+                    const skills = app.candidateId?.skills || app.candidateId?.parsedResumeData?.skills || [];
+                    let skillsList = [];
+                    if (Array.isArray(skills)) {
+                      skillsList = skills;
+                    } else if (typeof skills === 'string' && skills.trim()) {
+                      skillsList = skills.split(',').map(s => s.trim());
+                    }
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.85rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Mail size={14} />
-                    <span>{app.email}</span>
-                  </div>
-                  {app.phone && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <PhoneCall size={14} />
-                      <span>{app.phone}</span>
-                    </div>
-                  )}
-                </div>
+                    const resumeToUse = app.resumeUrl || app.candidateId?.resumeUrl;
 
-                {app.candidateId && (
-                  <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--accent)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem', borderBottom: '1px dashed var(--border-color)', paddingBottom: '0.35rem' }}>
-                      <Sparkles size={12} />
-                      <span>Extracted ATS Resume Details:</span>
-                    </div>
-                    <div>&bull; <strong>Name:</strong> {app.candidateId.parsedResumeData?.name || app.name || app.candidateId.fullName || 'Not specified'}</div>
-                    <div>&bull; <strong>Education:</strong> {app.candidateId.education || app.candidateId.parsedResumeData?.education || 'Not specified'}</div>
-                    <div>&bull; <strong>Experience:</strong> {app.candidateId.experience || app.candidateId.parsedResumeData?.experience || 'Not specified'}</div>
-                    <div>&bull; <strong>Skills:</strong> {app.candidateId.skills && app.candidateId.skills.length > 0 
-                      ? app.candidateId.skills.join(', ') 
-                      : (app.candidateId.parsedResumeData?.skills && app.candidateId.parsedResumeData.skills.length > 0 ? app.candidateId.parsedResumeData.skills.join(', ') : 'Not specified')}
-                    </div>
-                    {app.candidateId.location && (
-                      <div>&bull; <strong>Location:</strong> {app.candidateId.location}</div>
-                    )}
-                    
-                    {/* View & Download Resume Section */}
-                    {(() => {
-                      const resumeToUse = app.resumeUrl || app.candidateId.resumeUrl;
-                      return resumeToUse ? (
-                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                          <a 
-                            href={`${backendBase}${resumeToUse}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="btn btn-secondary"
-                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-                          >
-                            <FileText size={12} />
-                            <span>View Resume</span>
-                          </a>
-                          <a 
-                            href={`${backendBase}${resumeToUse}`} 
-                            download
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="btn btn-secondary"
-                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-                          >
-                            <span>Download Resume</span>
-                          </a>
-                        </div>
-                      ) : (
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '0.25rem' }}>No resume uploaded</div>
-                      );
-                    })()}
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-color)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Status:</span>
-                      <select
-                        value={app.status || 'Under Review'}
-                        onChange={(e) => handleStatusChange(app._id, e.target.value)}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          fontSize: '0.8rem',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-color)',
-                          backgroundColor: 'var(--bg-primary)',
-                          color: 'var(--text-primary)',
-                          cursor: 'pointer',
-                          outline: 'none'
-                        }}
-                      >
-                        <option value="Under Review">Under Review</option>
-                        <option value="Shortlisted">Shortlisted</option>
-                        <option value="Rejected">Rejected</option>
-                      </select>
-                    </div>
-                    <span className={`status-tracking-badge ${app.status ? app.status.toLowerCase().replace(/\s+/g, '-') : 'under-review'}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
-                      {app.status || 'Under Review'}
-                    </span>
-                  </div>
-                  
-                  {app.candidateId && (
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ width: '100%', fontSize: '0.8rem', padding: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
-                      onClick={() => onPageChange('chat', { recipientId: app.candidateId._id })}
-                    >
-                      <MessageSquare size={14} />
-                      <span>Message Candidate</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+                    return (
+                      <tr key={app._id} style={{ verticalAlign: 'middle' }}>
+                        <td style={{ textAlign: 'center', padding: '1.25rem 1rem' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={selectedAppIds.includes(app._id)} 
+                            onChange={() => toggleSelectRow(app._id)}
+                            style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                          />
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.025rem' }}>{app.name}</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.25rem', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <Mail size={12} /> {app.email}
+                            </span>
+                            {app.phone && (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <PhoneCall size={12} /> {app.phone}
+                              </span>
+                            )}
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--accent)' }}>
+                              <Calendar size={12} /> Applied: {new Date(app.appliedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{app.jobTitle}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>{app.companyName}</div>
+                          
+                          {/* Resume Actions inline under job info */}
+                          {resumeToUse ? (
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                              <a 
+                                href={`${backendBase}${resumeToUse}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="btn btn-secondary"
+                                style={{ padding: '0.2rem 0.45rem', fontSize: '0.7rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                              >
+                                <FileText size={10} />
+                                <span>View</span>
+                              </a>
+                              <a 
+                                href={`${backendBase}${resumeToUse}`} 
+                                download
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="btn btn-secondary"
+                                style={{ padding: '0.2rem 0.45rem', fontSize: '0.7rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                              >
+                                <span>Download</span>
+                              </a>
+                            </div>
+                          ) : (
+                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', marginTop: '0.25rem' }}>No Resume</div>
+                          )}
+                        </td>
+                        <td style={{ maxWidth: '240px' }}>
+                          {skillsList.length === 0 ? (
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>None extracted</span>
+                          ) : (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                              {skillsList.slice(0, 5).map((skill, index) => (
+                                <span 
+                                  key={index} 
+                                  className="badge badge-secondary"
+                                  style={{ 
+                                    fontSize: '0.7rem', 
+                                    padding: '0.15rem 0.4rem', 
+                                    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                                    color: '#6366f1',
+                                    border: '1px solid rgba(99, 102, 241, 0.15)',
+                                    borderRadius: '6px'
+                                  }}
+                                >
+                                  {skill}
+                                </span>
+                              ))}
+                              {skillsList.length > 5 && (
+                                <span 
+                                  style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', alignSelf: 'center', fontWeight: 500 }}
+                                >
+                                  +{skillsList.length - 5} more
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                            <span 
+                              className={`status-tracking-badge ${app.status ? app.status.toLowerCase().replace(/\s+/g, '-') : 'under-review'}`} 
+                              style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', width: 'fit-content' }}
+                            >
+                              {app.status || 'Under Review'}
+                            </span>
+                            <select
+                              value={app.status || 'Under Review'}
+                              onChange={(e) => handleStatusChange(app._id, e.target.value)}
+                              style={{
+                                padding: '0.25rem 0.5rem',
+                                fontSize: '0.8rem',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-color)',
+                                backgroundColor: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)',
+                                cursor: 'pointer',
+                                outline: 'none',
+                                width: '130px'
+                              }}
+                            >
+                              <option value="Applied">Applied</option>
+                              <option value="Under Review">Under Review</option>
+                              <option value="Shortlisted">Shortlisted</option>
+                              <option value="Interview Scheduled">Interview Scheduled</option>
+                              <option value="Rejected">Rejected</option>
+                              <option value="Hired">Hired</option>
+                            </select>
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={() => handleOpenNotes(app)}
+                              className="btn btn-secondary btn-icon"
+                              style={{ padding: '0.4rem' }}
+                              title="Notes"
+                            >
+                              <FileText size={15} />
+                            </button>
+                            
+                            <button
+                              onClick={() => handleOpenInterviewModal(app)}
+                              className="btn btn-secondary btn-icon"
+                              style={{ padding: '0.4rem' }}
+                              title="Schedule Interview"
+                            >
+                              <Calendar size={15} />
+                            </button>
+                            
+                            {app.candidateId && (
+                              <button
+                                onClick={() => onPageChange('chat', { recipientId: app.candidateId._id })}
+                                className="btn btn-secondary btn-icon"
+                                style={{ padding: '0.4rem' }}
+                                title="Message Candidate"
+                              >
+                                <MessageSquare size={15} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -1183,7 +1673,12 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
   const isManageJobs = currentPath === '/recruiter/jobs';
 
   return (
-    <div className="container dashboard-layout" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
+    <div className="container dashboard-layout" style={{ paddingTop: '2rem', paddingBottom: '4rem', position: 'relative' }}>
+      {/* Ambient background glow orbs */}
+      <div className="glow-orb-container">
+        <div className="glow-orb glow-orb-1"></div>
+        <div className="glow-orb glow-orb-2"></div>
+      </div>
       
       {/* Dashboard Stats Panel (only shown on /recruiter/dashboard) */}
       {!isManageJobs && (
@@ -1231,78 +1726,135 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
             </div>
           </div>
 
-          {/* Recent Applications Listing */}
-          <div style={{ marginBottom: '3rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h2 style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Recent Applications</h2>
-              <button className="view-all-jobs-link" onClick={() => onPageChange('/recruiter/applications')}>
-                View All <ArrowRight size={16} />
-              </button>
+          {/* Two Columns Grid for Recent Applications & Recent Activities */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
+            
+            {/* Left: Recent Applications */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>Recent Applications</h2>
+                <button className="view-all-jobs-link" onClick={() => onPageChange('/recruiter/applications')}>
+                  View All <ArrowRight size={16} />
+                </button>
+              </div>
+
+              {recentApplications.length === 0 ? (
+                <div className="dashboard-table-card" style={{ padding: '2.5rem 1.5rem', textAlign: 'center', margin: 0 }}>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0 }}>You haven't received any candidate applications yet.</p>
+                </div>
+              ) : (
+                <div className="dashboard-table-card" style={{ padding: '0', margin: 0 }}>
+                  <div className="table-responsive">
+                    <table className="dashboard-table">
+                      <thead>
+                        <tr>
+                          <th>Candidate</th>
+                          <th>Position</th>
+                          <th>Evaluation Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentApplications.slice(0, 5).map((app) => (
+                          <tr key={app._id}>
+                            <td>
+                              <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{app.name}</div>
+                              <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>{app.email}</div>
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: 500, fontSize: '0.9rem' }}>{app.jobTitle}</div>
+                              <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>{app.companyName}</div>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                <span className={`status-tracking-badge ${app.status ? app.status.toLowerCase().replace(/\s+/g, '-') : 'under-review'}`} style={{ fontSize: '0.7rem', padding: '0.15rem 0.45rem', width: 'fit-content' }}>
+                                  {app.status || 'Under Review'}
+                                </span>
+                                <select
+                                  value={app.status || 'Under Review'}
+                                  onChange={(e) => handleStatusChange(app._id, e.target.value)}
+                                  style={{
+                                    padding: '0.2rem 0.4rem',
+                                    fontSize: '0.75rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-color)',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    outline: 'none',
+                                    width: '115px'
+                                  }}
+                                >
+                                  <option value="Applied">Applied</option>
+                                  <option value="Under Review">Under Review</option>
+                                  <option value="Shortlisted">Shortlisted</option>
+                                  <option value="Interview Scheduled">Interview Scheduled</option>
+                                  <option value="Rejected">Rejected</option>
+                                  <option value="Hired">Hired</option>
+                                </select>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {recentApplications.length === 0 ? (
-              <div className="dashboard-table-card" style={{ padding: '2.5rem 1.5rem', textAlign: 'center' }}>
-                <p style={{ color: 'var(--text-secondary)' }}>You haven't received any candidate applications yet.</p>
+            {/* Right: Recent Activity Log */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>Recent ATS Activity</h2>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>System logs</span>
               </div>
-            ) : (
-              <div className="dashboard-table-card" style={{ padding: '0' }}>
-                <div className="table-responsive">
-                  <table className="dashboard-table">
-                    <thead>
-                      <tr>
-                        <th>Candidate</th>
-                        <th>Applied Position</th>
-                        <th>Applied Date</th>
-                        <th>Evaluation Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentApplications.slice(0, 5).map((app) => (
-                        <tr key={app._id}>
-                          <td>
-                            <div style={{ fontWeight: 600 }}>{app.name}</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{app.email}</div>
-                          </td>
-                          <td>
-                            <div style={{ fontWeight: 500 }}>{app.jobTitle}</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{app.companyName}</div>
-                          </td>
-                          <td>
-                            <span>{new Date(app.appliedAt).toLocaleDateString()}</span>
-                          </td>
-                          <td>
-                            <span className={`status-tracking-badge ${app.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
-                              {app.status}
-                            </span>
-                          </td>
-                          <td>
-                            <select
-                              value={app.status || 'Under Review'}
-                              onChange={(e) => handleStatusChange(app._id, e.target.value)}
-                              style={{
-                                padding: '0.25rem 0.5rem',
-                                fontSize: '0.8rem',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border-color)',
-                                backgroundColor: 'var(--bg-secondary)',
-                                color: 'var(--text-primary)',
-                                cursor: 'pointer',
-                                outline: 'none'
-                              }}
-                            >
-                              <option value="Under Review">Under Review</option>
-                              <option value="Shortlisted">Shortlisted</option>
-                              <option value="Rejected">Rejected</option>
-                            </select>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+
+              <div 
+                className="dashboard-table-card" 
+                style={{ 
+                  padding: '1.25rem', 
+                  margin: 0, 
+                  height: '345px', 
+                  overflowY: 'auto', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '0.75rem' 
+                }}
+              >
+                {activitiesLoading ? (
+                  <LoadingSpinner />
+                ) : recentActivities.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2.5rem 1.5rem', color: 'var(--text-secondary)', margin: 'auto 0' }}>
+                    No recent system activity logs available.
+                  </div>
+                ) : (
+                  recentActivities.slice(0, 10).map((activity) => (
+                    <div 
+                      key={activity._id} 
+                      style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'flex-start', 
+                        padding: '0.75rem', 
+                        borderRadius: '8px', 
+                        border: '1px solid var(--border-color)', 
+                        backgroundColor: 'var(--bg-primary)',
+                        fontSize: '0.875rem' 
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                        <div style={{ marginTop: '0.4rem', display: 'flex', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent)', flexShrink: 0 }} />
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 500, textAlign: 'left' }}>{activity.action}</span>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', marginLeft: '1rem', alignSelf: 'center' }}>
+                        {new Date(activity.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })} at {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
-            )}
+            </div>
+
           </div>
         </>
       )}
@@ -1349,6 +1901,7 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                     <th>Job Details</th>
                     <th>Job Type</th>
                     <th>Salary Range</th>
+                    <th>Status</th>
                     <th>Date Posted</th>
                     <th>Applications</th>
                     <th>Actions</th>
@@ -1357,7 +1910,7 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                 <tbody>
                   {jobs.length === 0 ? (
                     <tr>
-                      <td colSpan="6" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+                      <td colSpan="7" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
                         <div className="empty-state-container" style={{ border: 'none', boxShadow: 'none', background: 'transparent' }}>
                           <Briefcase size={40} className="empty-state-icon" />
                           <h3 className="empty-state-title">No jobs created yet</h3>
@@ -1386,6 +1939,11 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                           </span>
                         </td>
                         <td>
+                          <span className={`status-tracking-badge ${(job.jobStatus || 'Open').toLowerCase()}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
+                            {job.jobStatus || 'Open'}
+                          </span>
+                        </td>
+                        <td>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 500 }}>
                             <Calendar size={14} style={{ color: 'var(--accent)' }} />
                             <span>
@@ -1404,7 +1962,24 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                           </button>
                         </td>
                         <td>
-                          <div className="table-actions">
+                          <div className="table-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            {job.jobStatus === 'Closed' ? (
+                              <button 
+                                className="btn btn-secondary"
+                                style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                                onClick={() => handleReopenJob(job._id)}
+                              >
+                                Reopen Job
+                              </button>
+                            ) : (
+                              <button 
+                                className="btn btn-danger"
+                                style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', whiteSpace: 'nowrap', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                                onClick={() => handleCloseJob(job._id)}
+                              >
+                                Close Job
+                              </button>
+                            )}
                             <button 
                               className="btn btn-secondary btn-icon"
                               title="Edit Job"
@@ -1537,9 +2112,12 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
                           outline: 'none'
                         }}
                       >
+                        <option value="Applied">Applied</option>
                         <option value="Under Review">Under Review</option>
                         <option value="Shortlisted">Shortlisted</option>
+                        <option value="Interview Scheduled">Interview Scheduled</option>
                         <option value="Rejected">Rejected</option>
+                        <option value="Hired">Hired</option>
                       </select>
                     </div>
                     <span className={`status-tracking-badge ${app.status ? app.status.toLowerCase().replace(/\s+/g, '-') : 'under-review'}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
@@ -1567,6 +2145,229 @@ const RecruiterDashboard = ({ currentPath, onPageChange }) => {
           </div>
         )}
       </Modal>
+
+      {/* NOTES MODAL */}
+      <Modal
+        isOpen={isNotesModalOpen}
+        onClose={() => setIsNotesModalOpen(false)}
+        title={`Evaluation Notes: ${selectedCandidateName}`}
+        footer={<button className="btn btn-secondary" onClick={() => setIsNotesModalOpen(false)}>Close</button>}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Add Note Form */}
+          <form onSubmit={handleAddNote} style={{ display: 'flex', gap: '0.75rem' }}>
+            <input
+              type="text"
+              placeholder="Type a new evaluation note..."
+              value={newNoteText}
+              onChange={(e) => setNewNoteText(e.target.value)}
+              className="form-input"
+              style={{ flex: 1 }}
+              required
+            />
+            <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <Plus size={16} /> Add Note
+            </button>
+          </form>
+
+          {/* Notes List */}
+          {notesLoading ? (
+            <LoadingSpinner />
+          ) : appNotes.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)' }}>
+              No private notes recorded for this candidate yet.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+              {appNotes.map((note) => (
+                <div 
+                  key={note._id} 
+                  style={{ 
+                    padding: '1rem', 
+                    borderRadius: '8px', 
+                    border: '1px solid var(--border-color)', 
+                    backgroundColor: 'var(--bg-primary)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem'
+                  }}
+                >
+                  {editingNoteId === note._id ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <textarea
+                        value={editingNoteText}
+                        onChange={(e) => setEditingNoteText(e.target.value)}
+                        className="form-textarea"
+                        style={{ minHeight: '80px', fontSize: '0.9rem' }}
+                      />
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                          onClick={() => {
+                            setEditingNoteId(null);
+                            setEditingNoteText('');
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-primary" 
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                          onClick={() => handleUpdateNote(note._id)}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{ margin: 0, fontSize: '0.925rem', whiteSpace: 'pre-wrap', color: 'var(--text-primary)', textAlign: 'left' }}>
+                        {note.note}
+                      </p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
+                        <span>
+                          {new Date(note.createdAt).toLocaleDateString()} at {new Date(note.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button 
+                            type="button" 
+                            style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.15rem' }}
+                            onClick={() => {
+                              setEditingNoteId(note._id);
+                              setEditingNoteText(note.note);
+                            }}
+                          >
+                            <Edit size={12} /> Edit
+                          </button>
+                          <button 
+                            type="button" 
+                            style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.15rem' }}
+                            onClick={() => handleDeleteNote(note._id)}
+                          >
+                            <Trash2 size={12} /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* INTERVIEW MODAL */}
+      <Modal
+        isOpen={isInterviewModalOpen}
+        onClose={() => setIsInterviewModalOpen(false)}
+        title={activeInterview ? `Update Interview: ${selectedCandidateName}` : `Schedule Interview: ${selectedCandidateName}`}
+        footer={
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', width: '100%' }}>
+            {activeInterview && (
+              <button 
+                type="button" 
+                className="btn btn-danger" 
+                style={{ marginRight: 'auto', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                onClick={() => handleCancelInterview(activeInterview._id)}
+              >
+                Cancel Interview
+              </button>
+            )}
+            <button className="btn btn-secondary" onClick={() => setIsInterviewModalOpen(false)}>Close</button>
+            <button 
+              className="btn btn-primary" 
+              onClick={handleScheduleOrUpdateInterview}
+              disabled={interviewSubmitLoading}
+            >
+              {interviewSubmitLoading ? 'Saving...' : activeInterview ? 'Update Schedule' : 'Schedule'}
+            </button>
+          </div>
+        }
+      >
+        <form onSubmit={handleScheduleOrUpdateInterview} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="form-group">
+            <label className="form-label">Date *</label>
+            <input 
+              type="date" 
+              value={interviewFormData.date} 
+              onChange={(e) => setInterviewFormData(prev => ({ ...prev, date: e.target.value }))}
+              className="form-input"
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Time *</label>
+            <input 
+              type="time" 
+              value={interviewFormData.time} 
+              onChange={(e) => setInterviewFormData(prev => ({ ...prev, time: e.target.value }))}
+              className="form-input"
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Interview Mode *</label>
+            <select 
+              value={interviewFormData.mode} 
+              onChange={(e) => setInterviewFormData(prev => ({ ...prev, mode: e.target.value }))}
+              className="form-select"
+              required
+            >
+              <option value="Online">Online</option>
+              <option value="Offline">Offline</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Meeting Link / Location</label>
+            <input 
+              type="text" 
+              placeholder={interviewFormData.mode === 'Online' ? 'https://meet.google.com/abc-defg-hij' : 'Office address / Location details'}
+              value={interviewFormData.meetingLink} 
+              onChange={(e) => setInterviewFormData(prev => ({ ...prev, meetingLink: e.target.value }))}
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Remarks / Instructions for Candidate</label>
+            <textarea 
+              placeholder="e.g. Please bring a copy of your resume and portfolio..."
+              value={interviewFormData.remarks} 
+              onChange={(e) => setInterviewFormData(prev => ({ ...prev, remarks: e.target.value }))}
+              className="form-textarea"
+              style={{ minHeight: '80px' }}
+            />
+          </div>
+        </form>
+      </Modal>
+
+      {/* Local floating notification toast banner */}
+      {localToast && (
+        <div 
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            backgroundColor: localToast.type === 'error' ? 'var(--error)' : 'var(--success)',
+            color: '#ffffff',
+            padding: '1rem 1.5rem',
+            borderRadius: '12px',
+            boxShadow: localToast.type === 'error' ? '0 10px 25px rgba(239, 68, 68, 0.3)' : '0 10px 25px rgba(34, 197, 94, 0.3)',
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            fontWeight: 600,
+            animation: 'modalSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+        >
+          {localToast.type === 'error' ? <AlertTriangle size={20} /> : <CheckCircle size={20} />}
+          <span>{localToast.message}</span>
+        </div>
+      )}
     </div>
   );
 };

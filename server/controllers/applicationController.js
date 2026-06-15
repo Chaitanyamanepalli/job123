@@ -46,6 +46,14 @@ const applyJob = async (req, res, next) => {
       });
     }
 
+    // Check if job is Closed
+    if (job.jobStatus === 'Closed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Applications Closed for this job posting',
+      });
+    }
+
     // Check if the candidate has uploaded a resume
     if (!req.user.resumeUrl) {
       return res.status(400).json({
@@ -287,12 +295,12 @@ const getUserApplications = async (req, res, next) => {
 const updateApplicationStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
-    const validStatuses = ['Under Review', 'Shortlisted', 'Rejected'];
+    const validStatuses = ['Applied', 'Under Review', 'Shortlisted', 'Interview Scheduled', 'Rejected', 'Hired'];
 
     if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid status. Must be: Under Review, Shortlisted, or Rejected',
+        message: 'Invalid status. Must be one of: Applied, Under Review, Shortlisted, Interview Scheduled, Rejected, Hired',
       });
     }
 
@@ -316,7 +324,7 @@ const updateApplicationStatus = async (req, res, next) => {
 
     const application = await Application.findByIdAndUpdate(
       req.params.id,
-      { status },
+      { status, applicationStatus: status },
       { new: true, runValidators: true }
     );
 
@@ -325,6 +333,18 @@ const updateApplicationStatus = async (req, res, next) => {
         success: false,
         message: 'Application not found',
       });
+    }
+
+    // Create Activity Log
+    const ActivityLog = require('../models/ActivityLog');
+    try {
+      let logAction = `${status} ${application.name}`;
+      await ActivityLog.create({
+        recruiterId: req.user._id,
+        action: logAction,
+      });
+    } catch (err) {
+      console.error('Failed to log status update activity:', err.message);
     }
 
     // Save Notification to Database for Candidate
@@ -367,12 +387,12 @@ const updateApplicationStatus = async (req, res, next) => {
 const updateApplicationStatusPatch = async (req, res, next) => {
   try {
     const { status } = req.body;
-    const validStatuses = ['Pending', 'Shortlisted', 'Accepted', 'Rejected'];
+    const validStatuses = ['Applied', 'Under Review', 'Shortlisted', 'Interview Scheduled', 'Rejected', 'Hired'];
 
     if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid status. Must be: Pending, Shortlisted, Accepted, or Rejected',
+        message: 'Invalid status. Must be one of: Applied, Under Review, Shortlisted, Interview Scheduled, Rejected, Hired',
       });
     }
 
@@ -392,25 +412,33 @@ const updateApplicationStatusPatch = async (req, res, next) => {
       });
     }
 
-    let mappedStatus = 'Under Review';
-    if (status === 'Shortlisted') mappedStatus = 'Shortlisted';
-    if (status === 'Accepted' || status === 'Rejected') mappedStatus = status;
-
     const application = await Application.findByIdAndUpdate(
       req.params.id,
       { 
         applicationStatus: status,
-        status: mappedStatus
+        status: status
       },
       { new: true, runValidators: true }
     );
 
+    // Create Activity Log
+    const ActivityLog = require('../models/ActivityLog');
+    try {
+      let logAction = `${status} ${application.name}`;
+      await ActivityLog.create({
+        recruiterId: req.user._id,
+        action: logAction,
+      });
+    } catch (err) {
+      console.error('Failed to log status update activity:', err.message);
+    }
+
     // Save Notification to Database for Candidate
     try {
       let notifTitle = 'Application Status Updated';
-      if (status === 'Accepted') notifTitle = 'Application Accepted';
-      if (status === 'Rejected') notifTitle = 'Application Rejected';
       if (status === 'Shortlisted') notifTitle = 'Application Shortlisted';
+      if (status === 'Rejected') notifTitle = 'Application Rejected';
+      if (status === 'Hired') notifTitle = 'Application Accepted'; // backward compatibility
 
       const notification = await Notification.create({
         recipient: application.candidateId,
@@ -444,11 +472,202 @@ const updateApplicationStatusPatch = async (req, res, next) => {
   }
 };
 
+// @desc    Search & Filter applicants
+// @route   GET /api/applications/search
+// @access  Private (Recruiter only)
+const searchApplications = async (req, res, next) => {
+  try {
+    const { keyword, status, jobId } = req.query;
+
+    // Get all jobs posted by this recruiter to secure data access
+    const jobs = await Job.find({ postedBy: req.user._id });
+    const jobIds = jobs.map(job => job._id);
+
+    const query = { jobId: { $in: jobIds } };
+
+    if (jobId) {
+      if (jobIds.map(id => id.toString()).includes(jobId.toString())) {
+        query.jobId = jobId;
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to view applicants for this job',
+        });
+      }
+    }
+
+    if (keyword) {
+      query.$or = [
+        { name: { $regex: keyword, $options: 'i' } },
+        { email: { $regex: keyword, $options: 'i' } },
+      ];
+    }
+
+    if (status && status !== 'All') {
+      query.status = status;
+    }
+
+    const applications = await Application.find(query)
+      .populate('jobId', 'title company')
+      .populate('candidateId', 'resumeUrl skills experience education location parsedResumeData')
+      .sort({ appliedAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: applications.length,
+      applications,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Bulk update applications status
+// @route   PATCH /api/applications/bulk-update
+// @access  Private (Recruiter only)
+const bulkUpdateApplications = async (req, res, next) => {
+  try {
+    const { applicationIds, status } = req.body;
+    const validStatuses = ['Applied', 'Under Review', 'Shortlisted', 'Interview Scheduled', 'Rejected', 'Hired'];
+
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be one of: Applied, Under Review, Shortlisted, Interview Scheduled, Rejected, Hired',
+      });
+    }
+
+    if (!applicationIds || !Array.isArray(applicationIds) || applicationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'applicationIds array is required',
+      });
+    }
+
+    // Get all recruiter's jobs to verify ownership
+    const recruiterJobs = await Job.find({ postedBy: req.user._id });
+    const jobIds = recruiterJobs.map(job => job._id.toString());
+
+    // Find targets and verify ownership
+    const apps = await Application.find({ _id: { $in: applicationIds } });
+    const invalidApps = apps.filter(app => !jobIds.includes(app.jobId.toString()));
+
+    if (invalidApps.length > 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update some of the selected applications',
+      });
+    }
+
+    // Update all applications
+    await Application.updateMany(
+      { _id: { $in: applicationIds } },
+      { status, applicationStatus: status }
+    );
+
+    // Activity Logging & Notifications for each
+    const ActivityLog = require('../models/ActivityLog');
+    const Notification = require('../models/Notification');
+    const { sendEventToUser } = require('../config/socket');
+
+    for (const app of apps) {
+      try {
+        // Log activity
+        await ActivityLog.create({
+          recruiterId: req.user._id,
+          action: `${status} ${app.name}`,
+        });
+
+        // Log candidate notification
+        const jobObj = recruiterJobs.find(j => j._id.toString() === app.jobId.toString());
+        const jobTitle = jobObj ? jobObj.title : 'Job';
+        
+        const notification = await Notification.create({
+          recipient: app.candidateId,
+          sender: req.user._id,
+          type: 'status_change',
+          title: 'Application Status Updated',
+          message: `Your application status for "${jobTitle}" has been updated to "${status}"`,
+        });
+
+        sendEventToUser(app.candidateId, 'notification', {
+          _id: notification._id,
+          type: 'status_change',
+          title: notification.title,
+          message: notification.message,
+          isRead: false,
+          createdAt: notification.createdAt,
+        });
+      } catch (logErr) {
+        console.error('Failed to log bulk activity/notify for app:', app._id, logErr.message);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully updated ${apps.length} applications to "${status}"`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Export candidate data to CSV
+// @route   GET /api/applications/export
+// @access  Private (Recruiter only)
+const exportApplications = async (req, res, next) => {
+  try {
+    const { jobId } = req.query;
+
+    // Get recruiter's jobs to verify access
+    const jobs = await Job.find({ postedBy: req.user._id });
+    const jobIds = jobs.map(j => j._id.toString());
+
+    const query = { jobId: { $in: jobIds } };
+    if (jobId) {
+      if (jobIds.includes(jobId.toString())) {
+        query.jobId = jobId;
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to export applicants for this job',
+        });
+      }
+    }
+
+    const applications = await Application.find(query)
+      .populate('jobId', 'title')
+      .sort({ appliedAt: -1 });
+
+    // Generate CSV content
+    let csv = 'Name,Email,Phone,Applied Date,Status,Job Title\n';
+    applications.forEach(app => {
+      const cleanName = (app.name || '').replace(/"/g, '""');
+      const cleanEmail = (app.email || '').replace(/"/g, '""');
+      const cleanPhone = (app.phone || '').replace(/"/g, '""');
+      const cleanStatus = (app.status || 'Applied').replace(/"/g, '""');
+      const cleanJobTitle = (app.jobId?.title || 'Unknown').replace(/"/g, '""');
+      const formattedDate = new Date(app.appliedAt).toLocaleDateString();
+
+      csv += `"${cleanName}","${cleanEmail}","${cleanPhone}","${formattedDate}","${cleanStatus}","${cleanJobTitle}"\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=applicants.csv');
+    res.status(200).send(csv);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   applyJob,
   getApplicationsByJob,
   getUserApplications,
   updateApplicationStatus,
   updateApplicationStatusPatch,
+  searchApplications,
+  bulkUpdateApplications,
+  exportApplications,
 };
 

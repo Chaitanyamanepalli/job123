@@ -57,16 +57,16 @@ const ApplicationSchema = new mongoose.Schema({
   // Progress status of the application (can be updated by the recruiter)
   status: {
     type: String,
-    enum: ['Under Review', 'Shortlisted', 'Rejected'],
-    default: 'Under Review',
+    enum: ['Applied', 'Under Review', 'Shortlisted', 'Interview Scheduled', 'Rejected', 'Hired'],
+    default: 'Applied',
   },
   resumeUrl: {
     type: String,
   },
   applicationStatus: {
     type: String,
-    enum: ['Pending', 'Shortlisted', 'Accepted', 'Rejected'],
-    default: 'Pending',
+    enum: ['Pending', 'Shortlisted', 'Accepted', 'Rejected', 'Applied', 'Under Review', 'Interview Scheduled', 'Hired'],
+    default: 'Applied',
   },
 });
 

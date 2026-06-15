@@ -157,6 +157,24 @@ export const api = {
     return handleResponse(response);
   },
 
+  // Closes job applications (Recruiter-only)
+  async closeJob(id) {
+    const response = await fetch(`${API_BASE}/jobs/${id}/close`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // Reopens job applications (Recruiter-only)
+  async reopenJob(id) {
+    const response = await fetch(`${API_BASE}/jobs/${id}/reopen`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
   // ====================================================
   // APPLICATION ENDPOINTS
   // ====================================================
@@ -193,6 +211,19 @@ export const api = {
       method: 'PATCH',
       headers: getHeaders(),
       body: JSON.stringify({ status }),
+    });
+    return handleResponse(response);
+  },
+
+  // Searches recruiter's job applicants with keyword and status filter
+  async searchApplications({ keyword = '', status = 'All', jobId = '' } = {}) {
+    const query = new URLSearchParams();
+    if (keyword) query.append('keyword', keyword);
+    if (status && status !== 'All') query.append('status', status);
+    if (jobId) query.append('jobId', jobId);
+    
+    const response = await fetch(`${API_BASE}/applications/search?${query.toString()}`, {
+      headers: getHeaders(null),
     });
     return handleResponse(response);
   },
@@ -404,6 +435,130 @@ export const api = {
     const response = await fetch(`${API_BASE}/notifications`, {
       method: 'DELETE',
       headers: getHeaders(null),
+    });
+    return handleResponse(response);
+  },
+
+  // ====================================================
+  // RECIPENT RECENT ACTIVITIES
+  // ====================================================
+  async getRecentActivities() {
+    const response = await fetch(`${API_BASE}/activities`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // ====================================================
+  // RECIPENT RECENT NOTES
+  // ====================================================
+  async getNotes(applicationId) {
+    const response = await fetch(`${API_BASE}/notes/${applicationId}`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async createNote(applicationId, note) {
+    const response = await fetch(`${API_BASE}/notes`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ applicationId, note }),
+    });
+    return handleResponse(response);
+  },
+
+  async updateNote(noteId, note) {
+    const response = await fetch(`${API_BASE}/notes/${noteId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ note }),
+    });
+    return handleResponse(response);
+  },
+
+  async deleteNote(noteId) {
+    const response = await fetch(`${API_BASE}/notes/${noteId}`, {
+      method: 'DELETE',
+      headers: getHeaders(null),
+    });
+    return handleResponse(response);
+  },
+
+  // ====================================================
+  // INTERVIEW MANAGEMENT
+  // ====================================================
+  async getInterview(interviewId) {
+    const response = await fetch(`${API_BASE}/interviews/${interviewId}`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async getInterviewByApplication(applicationId) {
+    const response = await fetch(`${API_BASE}/interviews/application/${applicationId}`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async scheduleInterview(interviewData) {
+    const response = await fetch(`${API_BASE}/interviews`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(interviewData),
+    });
+    return handleResponse(response);
+  },
+
+  async updateInterview(interviewId, interviewData) {
+    const response = await fetch(`${API_BASE}/interviews/${interviewId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(interviewData),
+    });
+    return handleResponse(response);
+  },
+
+  async cancelInterview(interviewId) {
+    const response = await fetch(`${API_BASE}/interviews/${interviewId}`, {
+      method: 'DELETE',
+      headers: getHeaders(null),
+    });
+    return handleResponse(response);
+  },
+
+  // Bulk update applications
+  async bulkUpdateApplications(applicationIds, status) {
+    const response = await fetch(`${API_BASE}/applications/bulk-update`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ applicationIds, status }),
+    });
+    return handleResponse(response);
+  },
+
+  // Export applications to CSV and trigger download
+  async exportApplications(jobId) {
+    const query = jobId ? `?jobId=${jobId}` : '';
+    const response = await fetch(`${API_BASE}/applications/export${query}`, {
+      headers: getHeaders(null),
+    });
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `applicants_${jobId || 'all'}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  // Fetch recruiter recruitment analytics
+  async getRecruiterAnalytics() {
+    const response = await fetch(`${API_BASE}/analytics/recruiter`, {
+      headers: getHeaders(),
     });
     return handleResponse(response);
   },

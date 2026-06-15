@@ -32,6 +32,10 @@ const chatRoutes = require('./routes/chatRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const activityRoutes = require('./routes/activityRoutes');
+const noteRoutes = require('./routes/noteRoutes');
+const interviewRoutes = require('./routes/interviewRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const { init: initSocket } = require('./config/socket');
 
@@ -114,6 +118,10 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/notes', noteRoutes);
+app.use('/api/interviews', interviewRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/api', applicationRoutes); // Mount fallback apply route (e.g. /api/jobs/:id/apply)
 
 // Root route (sanity ping verify)

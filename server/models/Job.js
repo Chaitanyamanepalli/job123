@@ -75,6 +75,12 @@ const JobSchema = new mongoose.Schema(
       ref: 'User',
       required: [true, 'Recruiter owner is required'],
     },
+    // Status of the job posting (whether it is accepting applications)
+    jobStatus: {
+      type: String,
+      enum: ['Open', 'Closed'],
+      default: 'Open',
+    },
   },
   {
     // Automatically sets 'createdAt' and 'updatedAt' fields

@@ -111,9 +111,37 @@ const Signup = ({ onPageChange, onAuthSuccess }) => {
     }
   };
 
+  const handleMouseMove = (e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const xc = rect.width / 2;
+    const yc = rect.height / 2;
+    const angle = 8;
+    const rotateX = (yc - y) / yc * angle;
+    const rotateY = (x - xc) / xc * angle;
+    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-6px)`;
+    card.style.boxShadow = `0 20px 40px rgba(0, 0, 0, 0.2), 0 0 30px rgba(163, 230, 53, 0.15)`;
+  };
+
+  const handleMouseLeave = (e) => {
+    const card = e.currentTarget;
+    card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)`;
+    card.style.boxShadow = '';
+  };
+
   return (
-    <div className="auth-page-container container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 160px)', padding: '2rem 1.5rem' }}>
-      <div className="auth-card">
+    <div className="auth-page-container container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 160px)', padding: '2rem 1.5rem', position: 'relative' }}>
+      <div className="glow-orb-container">
+        <div className="glow-orb glow-orb-1"></div>
+        <div className="glow-orb glow-orb-2"></div>
+      </div>
+      <div 
+        className="auth-card card-3d-ats glass-panel-ats"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
         <div className="auth-header">
           <h2 className="auth-title">Create Account</h2>
           <p className="auth-subtitle">Join JobPortal Pro to explore opportunities or hire top talent</p>

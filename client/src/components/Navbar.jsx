@@ -126,6 +126,9 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout, socket }) => {
               <a href="/recruiter/applications" className={`nav-link-item ${currentPage === 'recruiter-dashboard' && window.location.pathname === '/recruiter/applications' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/recruiter/applications'); }}>
                 Applications
               </a>
+              <a href="/recruiter/analytics" className={`nav-link-item ${(currentPage === 'recruiter-analytics' || window.location.pathname === '/recruiter/analytics') ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/recruiter/analytics'); }}>
+                Analytics
+              </a>
               <a href="/chat" className={`nav-link-item ${currentPage === 'chat' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/chat'); }}>
                 Chat
               </a>
@@ -264,6 +267,9 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout, socket }) => {
             </a>
             <a href="/recruiter/applications" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/recruiter/applications'); }}>
               Applications
+            </a>
+            <a href="/recruiter/analytics" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/recruiter/analytics'); }}>
+              Analytics
             </a>
             <a href="/chat" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/chat'); }}>
               Chat

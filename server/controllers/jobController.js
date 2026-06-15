@@ -213,6 +213,17 @@ const createJob = async (req, res, next) => {
       postedBy: req.user._id, // Set the creator ID to the logged-in recruiter user
     });
 
+    // Create Activity Log for Job Created
+    const ActivityLog = require('../models/ActivityLog');
+    try {
+      await ActivityLog.create({
+        recruiterId: req.user._id,
+        action: `Created ${job.title} Job`,
+      });
+    } catch (err) {
+      console.error('Failed to log job creation activity:', err.message);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Job created successfully',
@@ -384,6 +395,96 @@ const uploadJobLogo = async (req, res, next) => {
   }
 };
 
+// @desc    Close Job
+// @route   PATCH /api/jobs/:id/close
+// @access  Private (Recruiter only)
+const closeJob = async (req, res, next) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found',
+      });
+    }
+
+    // Owner authorization guard
+    if (job.postedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to close this job listing',
+      });
+    }
+
+    job.jobStatus = 'Closed';
+    await job.save();
+
+    // Create Activity Log
+    const ActivityLog = require('../models/ActivityLog');
+    try {
+      await ActivityLog.create({
+        recruiterId: req.user._id,
+        action: `Closed ${job.title} Job`,
+      });
+    } catch (err) {
+      console.error('Failed to log job close activity:', err.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Job closed successfully',
+      job,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Reopen Job
+// @route   PATCH /api/jobs/:id/reopen
+// @access  Private (Recruiter only)
+const reopenJob = async (req, res, next) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found',
+      });
+    }
+
+    // Owner authorization guard
+    if (job.postedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to reopen this job listing',
+      });
+    }
+
+    job.jobStatus = 'Open';
+    await job.save();
+
+    // Create Activity Log
+    const ActivityLog = require('../models/ActivityLog');
+    try {
+      await ActivityLog.create({
+        recruiterId: req.user._id,
+        action: `Reopened ${job.title} Job`,
+      });
+    } catch (err) {
+      console.error('Failed to log job reopen activity:', err.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Job reopened successfully',
+      job,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getJobs,
   getJobById,
@@ -393,4 +494,6 @@ module.exports = {
   saveJob,
   unsaveJob,
   uploadJobLogo,
+  closeJob,
+  reopenJob,
 };
