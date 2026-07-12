@@ -336,6 +336,59 @@ export const api = {
   },
 
   // ====================================================
+  // AI PREPARATION ENDPOINTS
+  // ====================================================
+  async getAIDashboardStats() {
+    const response = await fetch(`${API_BASE}/ai/dashboard`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async analyzeResume(formData) {
+    const response = await fetch(`${API_BASE}/ai/analyze-resume`, {
+      method: 'POST',
+      headers: getHeaders(null), // Let browser set Content-Type with boundary for multipart
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  async getCareerRoadmap(roadmapData) {
+    const response = await fetch(`${API_BASE}/ai/career-roadmap`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(roadmapData),
+    });
+    return handleResponse(response);
+  },
+
+  async getInterviewQuestions(interviewType) {
+    const response = await fetch(`${API_BASE}/ai/interview-prep`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ interviewType }),
+    });
+    return handleResponse(response);
+  },
+
+  async getQuizQuestions(topic, difficulty, numQuestions) {
+    const response = await fetch(`${API_BASE}/ai/generate-quiz`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ topic, difficulty, numQuestions }),
+    });
+    return handleResponse(response);
+  },
+
+  async getAIRecommendations() {
+    const response = await fetch(`${API_BASE}/ai/recommendations`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  // ====================================================
   // CHAT ENDPOINTS
   // ====================================================
   async getConversations() {

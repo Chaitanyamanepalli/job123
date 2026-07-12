@@ -41,6 +41,7 @@ import SavedJobs from './pages/SavedJobs';
 import Chat from './pages/Chat';
 import AdminDashboard from './pages/AdminDashboard';
 import RecruiterAnalytics from './pages/RecruiterAnalytics';
+import AIPreparation from './pages/AIPreparation';
 
 // Purpose:
 // Orchestrates visual routing views, authentication updates, and alert notifications.
@@ -240,6 +241,8 @@ const AppContent = () => {
       navigate('/recruiter/analytics');
     } else if (target === 'candidate-dashboard' || target === '/candidate/dashboard') {
       navigate('/candidate/dashboard');
+    } else if (target === 'ai-preparation' || target === '/ai-preparation') {
+      navigate('/ai-preparation');
     } else if (target === 'saved-jobs' || target === '/saved-jobs') {
       navigate('/saved-jobs');
     } else if (target === 'chat' || target === '/chat') {
@@ -284,6 +287,7 @@ const AppContent = () => {
     if (path === '/forgot-password') return { name: 'forgot-password' };
     if (path === '/about') return { name: 'about' };
     if (path === '/candidate/dashboard') return { name: 'candidate-dashboard' };
+    if (path === '/ai-preparation') return { name: 'ai-preparation' };
     if (path === '/saved-jobs') return { name: 'saved-jobs' };
     if (path.startsWith('/chat')) {
       const queryIndex = path.indexOf('?');
@@ -327,7 +331,7 @@ const AppContent = () => {
     const route = parseRoute();
     const publicPaths = ['home', 'jobs', 'job-details', 'login', 'signup', 'forgot-password', 'reset-password', 'about'];
     const recruiterPaths = ['recruiter-dashboard', 'recruiter-analytics'];
-    const candidatePaths = ['my-applications', 'candidate-dashboard', 'saved-jobs'];
+    const candidatePaths = ['my-applications', 'candidate-dashboard', 'saved-jobs', 'ai-preparation'];
     const adminPaths = ['admin-dashboard'];
 
     if (!user) {
@@ -412,6 +416,8 @@ const AppContent = () => {
         );
       case 'candidate-dashboard':
         return <CandidateDashboard onPageChange={handlePageChange} user={user} />;
+      case 'ai-preparation':
+        return <AIPreparation onPageChange={handlePageChange} user={user} />;
       case 'saved-jobs':
         return <SavedJobs onPageChange={handlePageChange} onApply={handleApplyTrigger} />;
       case 'chat':

@@ -93,6 +93,9 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout, socket }) => {
               <a href="/candidate/dashboard" className={`nav-link-item ${currentPage === 'candidate-dashboard' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/candidate/dashboard'); }}>
                 Dashboard
               </a>
+              <a href="/ai-preparation" className={`nav-link-item ${currentPage === 'ai-preparation' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/ai-preparation'); }}>
+                AI Preparation
+              </a>
               <a href="/jobs" className={`nav-link-item ${currentPage === 'jobs' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); handleLinkClick('/jobs'); }}>
                 Jobs
               </a>
@@ -234,6 +237,9 @@ const Navbar = ({ currentPage, onPageChange, user, onLogout, socket }) => {
           <>
             <a href="/candidate/dashboard" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/candidate/dashboard'); }}>
               Dashboard
+            </a>
+            <a href="/ai-preparation" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/ai-preparation'); }}>
+              AI Preparation
             </a>
             <a href="/jobs" className="nav-link-mobile" onClick={(e) => { e.preventDefault(); handleLinkClick('/jobs'); }}>
               Jobs
